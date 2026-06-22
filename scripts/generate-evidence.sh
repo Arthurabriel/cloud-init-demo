@@ -51,6 +51,27 @@ git -C "${REPOSITORY_DIR}" rev-parse HEAD \
 git -C "${REPOSITORY_DIR}" status --porcelain \
     > "${EVIDENCE_DIR}/repository-status.txt"
 
+
+echo "[evidence] Registrando versões do SPIRE..."
+
+spire-server --version \
+    > "${EVIDENCE_DIR}/spire-server-version.txt"
+
+spire-agent --version \
+    > "${EVIDENCE_DIR}/spire-agent-version.txt"
+
+sha256sum /opt/spire/bin/spire-server \
+    > "${EVIDENCE_DIR}/spire-server.sha256"
+
+sha256sum /opt/spire/bin/spire-agent \
+    > "${EVIDENCE_DIR}/spire-agent.sha256"
+
+readlink -f /usr/local/bin/spire-server \
+    > "${EVIDENCE_DIR}/spire-server-link.txt"
+
+readlink -f /usr/local/bin/spire-agent \
+    > "${EVIDENCE_DIR}/spire-agent-link.txt"
+
 echo "[evidence] Calculando hashes dos artefatos..."
 
 find "${REPOSITORY_DIR}" \
