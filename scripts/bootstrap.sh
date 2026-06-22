@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPOSITORY_DIR="/opt/spire-demo"
+LOG_FILE="/var/log/spire-demo-bootstrap.log"
+COMPLETE_FILE="/var/lib/spire-demo/bootstrap-complete"
+
+exec > >(tee -a "${LOG_FILE}") 2>&1
+
+echo "[bootstrap] Iniciando bootstrap da instância..."
+echo "[bootstrap] Data: $(date --iso-8601=seconds)"
+echo "[bootstrap] Hostname: $(hostname)"
+
+mkdir -p \
+    /var/lib/spire-demo/evidence \
+    /etc/spire \
+    /opt/spire \
+    /run/spire
+
+echo "[bootstrap] Tornando scripts executáveis..."
+
+chmod +x \
+    "${REPOSITORY_DIR}/scripts/install-docker.sh" \
+    "${REPOSITORY_DIR}/scripts/generate-evidence.sh"
+
+echo "[bootstrap] Instalando Docker..."
+
+"${REPOSITORY_DIR}/scripts/install-docker.sh"
+
+echo "[bootstrap] Gerando evidências iniciais..."
+
+"${REPOSITORY_DIR}/scripts/generate-evidence.sh"
+
+echo "[bootstrap] Registrando conclusão..."
+
+touch "${COMPLETE_FILE}"
+
+echo "[bootstrap] Bootstrap concluído com sucesso."
