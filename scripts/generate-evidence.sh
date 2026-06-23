@@ -92,12 +92,52 @@ spire-server bundle show \
     -socketPath /run/spire/server/private/api.sock \
     &> "${EVIDENCE_DIR}/spire-server-bundle.txt"
 
-if cmp -s "${REPOSITORY_DIR}/configs/server.conf" \
+if cmp -s "${REPOSITORY_DIR}/config/server.conf" \
     /etc/spire/server.conf; then
     echo "match"
 else
     echo "mismatch"
 fi > "${EVIDENCE_DIR}/server-config-integrity.txt"
+
+
+echo "[evidence] Registrando configuração do SPIRE Agent..."
+
+sha256sum /etc/spire/agent.conf \
+    > "${EVIDENCE_DIR}/agent.conf.sha256"
+
+if [[ ! -f "${REPOSITORY_DIR}/config/agent.conf" ]]; then
+    echo "missing_source"
+elif cmp -s \
+    "${REPOSITORY_DIR}/config/agent.conf" \
+    /etc/spire/agent.conf; then
+    echo "match"
+else
+    echo "mismatch"
+fi > "${EVIDENCE_DIR}/agent-config-integrity.txt"
+
+systemctl is-active spire-agent \
+    > "${EVIDENCE_DIR}/spire-agent-service-status.txt"
+
+systemctl is-enabled spire-agent \
+    > "${EVIDENCE_DIR}/spire-agent-service-enabled.txt"
+
+spire-agent healthcheck \
+    -socketPath /run/spire/agent/public/api.sock \
+    &> "${EVIDENCE_DIR}/spire-agent-healthcheck.txt"
+
+spire-server agent list \
+    -socketPath /run/spire/server/private/api.sock \
+    &> "${EVIDENCE_DIR}/spire-server-agent-list.txt"
+
+stat /run/spire/agent/public/api.sock \
+    > "${EVIDENCE_DIR}/workload-api-socket.txt"
+
+if [[ -e /run/spire/agent/join-token ]]; then
+    echo "present"
+else
+    echo "removed_after_attestation"
+fi > "${EVIDENCE_DIR}/join-token-status.txt"
+
 
 echo "[evidence] Calculando hashes dos artefatos..."
 

@@ -23,6 +23,7 @@ chmod +x \
     "${REPOSITORY_DIR}/scripts/install-docker.sh" \
     "${REPOSITORY_DIR}/scripts/install-spire.sh" \
     "${REPOSITORY_DIR}/scripts/generate-evidence.sh" \
+    "${REPOSITORY_DIR}/scripts/configure-spire-agent.sh" \
     "${REPOSITORY_DIR}/scripts/configure-spire-server.sh"
 
 echo "[bootstrap] Instalando Docker..."
@@ -38,6 +39,9 @@ echo "[bootstrap] Configurando SPIRE Server..."
 "${REPOSITORY_DIR}/scripts/configure-spire-server.sh"
 
 echo "[bootstrap] Gerando evidências..."
+
+echo "[bootstrap] Configurando SPIRE Agent..."
+"${REPOSITORY_DIR}/scripts/configure-spire-agent.sh"
 
 "${REPOSITORY_DIR}/scripts/generate-evidence.sh"
 
