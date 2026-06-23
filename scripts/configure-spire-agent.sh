@@ -3,7 +3,7 @@ set -euo pipefail
 
 readonly REPOSITORY_DIR="/opt/spire-demo"
 
-readonly CONFIG_SOURCE="${REPOSITORY_DIR}/configs/agent.conf"
+readonly CONFIG_SOURCE="${REPOSITORY_DIR}/config/agent.conf"
 readonly SERVICE_SOURCE="${REPOSITORY_DIR}/systemd/spire-agent.service"
 readonly RUNNER_SOURCE="${REPOSITORY_DIR}/scripts/run-spire-agent.sh"
 
