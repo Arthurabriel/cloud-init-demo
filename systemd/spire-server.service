@@ -1,0 +1,26 @@
+[Unit]
+Description=SPIRE Server
+Documentation=https://spiffe.io/docs/latest/spire-about/spire-concepts/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=spire-server
+Group=spire-server
+
+ExecStart=/opt/spire/bin/spire-server run \
+    -config /etc/spire/server.conf
+
+Restart=on-failure
+RestartSec=5
+
+RuntimeDirectory=spire/server
+RuntimeDirectoryMode=0750
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

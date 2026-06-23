@@ -55,10 +55,10 @@ git -C "${REPOSITORY_DIR}" status --porcelain \
 echo "[evidence] Registrando versões do SPIRE..."
 
 spire-server --version \
-    > "${EVIDENCE_DIR}/spire-server-version.txt"
+    &> "${EVIDENCE_DIR}/spire-server-version.txt"
 
 spire-agent --version \
-    > "${EVIDENCE_DIR}/spire-agent-version.txt"
+    &> "${EVIDENCE_DIR}/spire-agent-version.txt"
 
 sha256sum /opt/spire/bin/spire-server \
     > "${EVIDENCE_DIR}/spire-server.sha256"
@@ -71,6 +71,33 @@ readlink -f /usr/local/bin/spire-server \
 
 readlink -f /usr/local/bin/spire-agent \
     > "${EVIDENCE_DIR}/spire-agent-link.txt"
+
+
+echo "[evidence] Registrando configuração do SPIRE Server..."
+
+sha256sum /etc/spire/server.conf \
+    > "${EVIDENCE_DIR}/server.conf.sha256"
+
+systemctl is-active spire-server \
+    > "${EVIDENCE_DIR}/spire-server-service-status.txt"
+
+systemctl is-enabled spire-server \
+    > "${EVIDENCE_DIR}/spire-server-service-enabled.txt"
+
+spire-server healthcheck \
+    -socketPath /run/spire/server/private/api.sock \
+    &> "${EVIDENCE_DIR}/spire-server-healthcheck.txt"
+
+spire-server bundle show \
+    -socketPath /run/spire/server/private/api.sock \
+    &> "${EVIDENCE_DIR}/spire-server-bundle.txt"
+
+if cmp -s "${REPOSITORY_DIR}/configs/server.conf" \
+    /etc/spire/server.conf; then
+    echo "match"
+else
+    echo "mismatch"
+fi > "${EVIDENCE_DIR}/server-config-integrity.txt"
 
 echo "[evidence] Calculando hashes dos artefatos..."
 

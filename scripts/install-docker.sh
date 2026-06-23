@@ -63,17 +63,17 @@ systemctl enable --now docker
 echo "[docker] Aguardando o daemon..."
 
 for attempt in $(seq 1 30); do
-if docker info >/dev/null 2>&1; then
-    echo "[docker] Daemon disponível."
-    break
-fi
+    if docker info >/dev/null 2>&1; then
+        echo "[docker] Daemon disponível."
+        break
+    fi
 
-if [ "${attempt}" -eq 30 ]; then
-    echo "[docker] O daemon não ficou disponível." >&2
-    exit 1
-fi
+    if [ "${attempt}" -eq 30 ]; then
+        echo "[docker] O daemon não ficou disponível." >&2
+        exit 1
+    fi
 
-sleep 2
+    sleep 2
 done
 
 echo "[docker] Adicionando ubuntu ao grupo docker..."
