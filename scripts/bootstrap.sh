@@ -22,7 +22,8 @@ echo "[bootstrap] Tornando scripts executáveis..."
 chmod +x \
     "${REPOSITORY_DIR}/scripts/install-docker.sh" \
     "${REPOSITORY_DIR}/scripts/install-spire.sh" \
-    "${REPOSITORY_DIR}/scripts/generate-evidence.sh"
+    "${REPOSITORY_DIR}/scripts/generate-evidence.sh" \
+    "${REPOSITORY_DIR}/scripts/configure-spire-server.sh"
 
 echo "[bootstrap] Instalando Docker..."
 
