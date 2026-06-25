@@ -3,6 +3,9 @@ set -euo pipefail
 
 readonly REPOSITORY_DIR="/opt/spire-demo"
 readonly EVIDENCE_DIR="/var/lib/spire-demo/evidence"
+readonly SERVER_SOCKET="/run/spire/server/private/api.sock"
+readonly AGENT_SOCKET="/run/spire/agent/agent.sock"
+readonly JOIN_TOKEN_FILE="/var/lib/spire/agent/join-token"
 
 mkdir -p "${EVIDENCE_DIR}"
 
@@ -85,11 +88,11 @@ systemctl is-enabled spire-server \
     > "${EVIDENCE_DIR}/spire-server-service-enabled.txt"
 
 spire-server healthcheck \
-    -socketPath /run/spire/server/private/api.sock \
+    -socketPath "${SERVER_SOCKET}" \
     &> "${EVIDENCE_DIR}/spire-server-healthcheck.txt"
 
 spire-server bundle show \
-    -socketPath /run/spire/server/private/api.sock \
+    -socketPath "${SERVER_SOCKET}" \
     &> "${EVIDENCE_DIR}/spire-server-bundle.txt"
 
 if cmp -s "${REPOSITORY_DIR}/config/server.conf" \
@@ -122,25 +125,17 @@ systemctl is-enabled spire-agent \
     > "${EVIDENCE_DIR}/spire-agent-service-enabled.txt"
 
 spire-agent healthcheck \
-    -socketPath /run/spire/agent/public/api.sock \
+    -socketPath "${AGENT_SOCKET}" \
     &> "${EVIDENCE_DIR}/spire-agent-healthcheck.txt"
 
-spire-agent healthcheck \
-    -socketPath /run/spire-agent/api.sock \
-    &> "${EVIDENCE_DIR}/spire-agent-healthcheck.txt"
-
-stat /run/spire-agent/api.sock \
+stat "${AGENT_SOCKET}" \
     > "${EVIDENCE_DIR}/workload-api-socket.txt"
 
-stat /run/spire/agent/public/api.sock \
-    > "${EVIDENCE_DIR}/workload-api-socket.txt"
-
-if [[ -e /run/spire/agent/join-token ]]; then
+if [[ -e "${JOIN_TOKEN_FILE}" ]]; then
     echo "present"
 else
     echo "removed_after_attestation"
 fi > "${EVIDENCE_DIR}/join-token-status.txt"
-
 
 echo "[evidence] Calculando hashes dos artefatos..."
 
