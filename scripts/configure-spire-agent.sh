@@ -13,11 +13,11 @@ readonly SERVICE_TARGET="/etc/systemd/system/spire-agent.service"
 readonly RUNNER_TARGET="/usr/local/sbin/run-spire-agent"
 
 readonly SERVER_SOCKET="/run/spire/server/private/api.sock"
-readonly AGENT_SOCKET="/run/spire-agent/agent.sock"
+readonly AGENT_SOCKET="/run/spire/agent/agent.sock"
 
 readonly JOIN_TOKEN_FILE="/var/lib/spire/agent/join-token"
 
-readonly AGENT_SPIFFE_ID="spiffe://example.org/host/spire-demo"
+readonly AGENT_SPIFFE_ID_PREFIX="spiffe://example.org/spire/agent/join_token/"
 
 echo "[spire-agent] Configurando SPIRE Agent..."
 
@@ -97,7 +97,6 @@ echo "[spire-agent] Gerando join token..."
 TOKEN_OUTPUT="$(
     spire-server token generate \
         -socketPath "${SERVER_SOCKET}" \
-        -spiffeID "${AGENT_SPIFFE_ID}" \
         -ttl 600
 )"
 
@@ -168,10 +167,36 @@ AGENT_LIST="$(
 
 printf '%s\n' "${AGENT_LIST}"
 
-if ! grep -Fq "${AGENT_SPIFFE_ID}" <<< "${AGENT_LIST}"; then
-    echo "[spire-agent] Agent esperado não aparece no Server." >&2
+if ! grep -Fq "${AGENT_SPIFFE_ID_PREFIX}" <<< "${AGENT_LIST}"; then
+    echo "[spire-agent] Nenhum Agent atestado por join_token foi encontrado." >&2
     exit 1
 fi
+
+if ! grep -Fq "Attestation type  : join_token" <<< "${AGENT_LIST}"; then
+    echo "[spire-agent] O Agent encontrado não usa join_token." >&2
+    exit 1
+fi
+
+AGENT_SPIFFE_ID="$(
+    printf '%s\n' "${AGENT_LIST}" |
+        awk -F': ' '/^SPIFFE ID/ { print $2; exit }'
+)"
+
+if [[ -z "${AGENT_SPIFFE_ID}" ]]; then
+    echo "[spire-agent] Não foi possível extrair o SPIFFE ID do Agent." >&2
+    exit 1
+fi
+
+printf '%s\n' "${AGENT_SPIFFE_ID}" \
+    > /var/lib/spire/agent/agent-spiffe-id
+
+chown spire-agent:spire-agent \
+    /var/lib/spire/agent/agent-spiffe-id
+
+chmod 0640 \
+    /var/lib/spire/agent/agent-spiffe-id
+
+echo "[spire-agent] Agent confirmado: ${AGENT_SPIFFE_ID}"
 
 echo "[spire-agent] Removendo token já utilizado..."
 
