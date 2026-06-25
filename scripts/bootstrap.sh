@@ -38,10 +38,11 @@ echo "[bootstrap] Configurando SPIRE Server..."
 
 "${REPOSITORY_DIR}/scripts/configure-spire-server.sh"
 
-echo "[bootstrap] Gerando evidências..."
-
 echo "[bootstrap] Configurando SPIRE Agent..."
+
 "${REPOSITORY_DIR}/scripts/configure-spire-agent.sh"
+
+echo "[bootstrap] Gerando evidências..."
 
 "${REPOSITORY_DIR}/scripts/generate-evidence.sh"
 

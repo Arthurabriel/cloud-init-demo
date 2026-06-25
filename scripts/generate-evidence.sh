@@ -125,9 +125,12 @@ spire-agent healthcheck \
     -socketPath /run/spire/agent/public/api.sock \
     &> "${EVIDENCE_DIR}/spire-agent-healthcheck.txt"
 
-spire-server agent list \
-    -socketPath /run/spire/server/private/api.sock \
-    &> "${EVIDENCE_DIR}/spire-server-agent-list.txt"
+spire-agent healthcheck \
+    -socketPath /run/spire-agent/api.sock \
+    &> "${EVIDENCE_DIR}/spire-agent-healthcheck.txt"
+
+stat /run/spire-agent/api.sock \
+    > "${EVIDENCE_DIR}/workload-api-socket.txt"
 
 stat /run/spire/agent/public/api.sock \
     > "${EVIDENCE_DIR}/workload-api-socket.txt"

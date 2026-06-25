@@ -13,8 +13,9 @@ readonly SERVICE_TARGET="/etc/systemd/system/spire-agent.service"
 readonly RUNNER_TARGET="/usr/local/sbin/run-spire-agent"
 
 readonly SERVER_SOCKET="/run/spire/server/private/api.sock"
-readonly AGENT_SOCKET="/run/spire/agent/public/api.sock"
-readonly JOIN_TOKEN_FILE="/run/spire/agent/join-token"
+readonly AGENT_SOCKET="/run/spire-agent/agent.sock"
+
+readonly JOIN_TOKEN_FILE="/var/lib/spire/agent/join-token"
 
 readonly AGENT_SPIFFE_ID="spiffe://example.org/host/spire-demo"
 
@@ -49,8 +50,8 @@ echo "[spire-agent] Criando diretórios..."
 
 install -d \
     -o root \
-    -g spire-agent \
-    -m 0750 \
+    -g root \
+    -m 0755 \
     /etc/spire
 
 install -d \
@@ -58,12 +59,6 @@ install -d \
     -g spire-agent \
     -m 0750 \
     /var/lib/spire/agent
-
-install -d \
-    -o spire-agent \
-    -g spire-agent \
-    -m 0750 \
-    /run/spire/agent/public
 
 echo "[spire-agent] Instalando configuração..."
 

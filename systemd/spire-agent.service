@@ -15,7 +15,7 @@ ExecStart=/usr/local/sbin/run-spire-agent
 Restart=on-failure
 RestartSec=5
 
-RuntimeDirectory=spire/agent
+RuntimeDirectory=spire-agent
 RuntimeDirectoryMode=0750
 
 UMask=0027
