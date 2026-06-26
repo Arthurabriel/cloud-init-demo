@@ -2,6 +2,7 @@
 set -euo pipefail
 
 readonly REPOSITORY_DIR="/opt/spire-demo"
+readonly RUNTIME_ENV="${REPOSITORY_DIR}/config/runtime.env"
 
 readonly CONFIG_SOURCE="${REPOSITORY_DIR}/config/agent.conf"
 readonly SERVICE_SOURCE="${REPOSITORY_DIR}/systemd/spire-agent.service"
@@ -12,12 +13,13 @@ readonly BUNDLE_TARGET="/etc/spire/agent-bundle.pem"
 readonly SERVICE_TARGET="/etc/systemd/system/spire-agent.service"
 readonly RUNNER_TARGET="/usr/local/sbin/run-spire-agent"
 
-readonly SERVER_SOCKET="/run/spire/server/private/api.sock"
-readonly AGENT_SOCKET="/run/spire/agent/agent.sock"
+if [[ ! -f "${RUNTIME_ENV}" ]]; then
+    echo "[spire-agent] Runtime env não encontrado: ${RUNTIME_ENV}" >&2
+    exit 1
+fi
 
-readonly JOIN_TOKEN_FILE="/var/lib/spire/agent/join-token"
-
-readonly AGENT_SPIFFE_ID_PREFIX="spiffe://example.org/spire/agent/join_token/"
+# shellcheck disable=SC1090
+source "${RUNTIME_ENV}"
 
 echo "[spire-agent] Configurando SPIRE Agent..."
 
@@ -81,7 +83,7 @@ install \
 echo "[spire-agent] Exportando trust bundle do Server..."
 
 spire-server bundle show \
-    -socketPath "${SERVER_SOCKET}" \
+    -socketPath "${SPIRE_SERVER_SOCKET}" \
     > "${BUNDLE_TARGET}"
 
 chown root:spire-agent "${BUNDLE_TARGET}"
@@ -96,7 +98,7 @@ echo "[spire-agent] Gerando join token..."
 
 TOKEN_OUTPUT="$(
     spire-server token generate \
-        -socketPath "${SERVER_SOCKET}" \
+        -socketPath "${SPIRE_SERVER_SOCKET}" \
         -ttl 600
 )"
 
@@ -116,9 +118,9 @@ install \
     -g spire-agent \
     -m 0600 \
     /dev/null \
-    "${JOIN_TOKEN_FILE}"
+    "${SPIRE_AGENT_JOIN_TOKEN_FILE}"
 
-printf '%s\n' "${JOIN_TOKEN}" > "${JOIN_TOKEN_FILE}"
+printf '%s\n' "${JOIN_TOKEN}" > "${SPIRE_AGENT_JOIN_TOKEN_FILE}"
 
 echo "[spire-agent] Instalando serviço systemd..."
 
@@ -138,7 +140,7 @@ systemctl enable --now spire-agent
 echo "[spire-agent] Aguardando Workload API..."
 
 for attempt in $(seq 1 30); do
-    if [[ -S "${AGENT_SOCKET}" ]]; then
+    if [[ -S "${SPIRE_AGENT_SOCKET}" ]]; then
         echo "[spire-agent] Workload API disponível."
         break
     fi
@@ -156,18 +158,18 @@ done
 echo "[spire-agent] Executando healthcheck..."
 
 spire-agent healthcheck \
-    -socketPath "${AGENT_SOCKET}"
+    -socketPath "${SPIRE_AGENT_SOCKET}"
 
 echo "[spire-agent] Confirmando atestação no Server..."
 
 AGENT_LIST="$(
     spire-server agent list \
-        -socketPath "${SERVER_SOCKET}"
+        -socketPath "${SPIRE_SERVER_SOCKET}"
 )"
 
 printf '%s\n' "${AGENT_LIST}"
 
-if ! grep -Fq "${AGENT_SPIFFE_ID_PREFIX}" <<< "${AGENT_LIST}"; then
+if ! grep -Fq "${SPIRE_AGENT_SPIFFE_ID_PREFIX}" <<< "${AGENT_LIST}"; then
     echo "[spire-agent] Nenhum Agent atestado por join_token foi encontrado." >&2
     exit 1
 fi
@@ -188,18 +190,18 @@ if [[ -z "${AGENT_SPIFFE_ID}" ]]; then
 fi
 
 printf '%s\n' "${AGENT_SPIFFE_ID}" \
-    > /var/lib/spire/agent/agent-spiffe-id
+    > "${SPIRE_AGENT_SPIFFE_ID_FILE}"
 
 chown spire-agent:spire-agent \
-    /var/lib/spire/agent/agent-spiffe-id
+    "${SPIRE_AGENT_SPIFFE_ID_FILE}"
 
 chmod 0640 \
-    /var/lib/spire/agent/agent-spiffe-id
+    "${SPIRE_AGENT_SPIFFE_ID_FILE}"
 
 echo "[spire-agent] Agent confirmado: ${AGENT_SPIFFE_ID}"
 
 echo "[spire-agent] Removendo token já utilizado..."
 
-rm -f "${JOIN_TOKEN_FILE}"
+rm -f "${SPIRE_AGENT_JOIN_TOKEN_FILE}"
 
 echo "[spire-agent] Configuração concluída."

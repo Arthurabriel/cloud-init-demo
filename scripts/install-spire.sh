@@ -2,7 +2,7 @@
 set -euo pipefail
 
 readonly REPOSITORY_DIR="/opt/spire-demo"
-readonly VERSION_FILE="${REPOSITORY_DIR}/VERSION.env"
+readonly VERSION_FILE="${REPOSITORY_DIR}/config/version.env"
 readonly DOWNLOAD_DIR="/tmp/spire-download"
 
 echo "[spire] Carregando versões..."

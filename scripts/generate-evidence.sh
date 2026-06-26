@@ -2,10 +2,16 @@
 set -euo pipefail
 
 readonly REPOSITORY_DIR="/opt/spire-demo"
+readonly RUNTIME_ENV="${REPOSITORY_DIR}/config/runtime.env"
 readonly EVIDENCE_DIR="/var/lib/spire-demo/evidence"
-readonly SERVER_SOCKET="/run/spire/server/private/api.sock"
-readonly AGENT_SOCKET="/run/spire/agent/agent.sock"
-readonly JOIN_TOKEN_FILE="/var/lib/spire/agent/join-token"
+
+if [[ ! -f "${RUNTIME_ENV}" ]]; then
+    echo "[evidence] Runtime env não encontrado: ${RUNTIME_ENV}" >&2
+    exit 1
+fi
+
+# shellcheck disable=SC1090
+source "${RUNTIME_ENV}"
 
 mkdir -p "${EVIDENCE_DIR}"
 
@@ -88,11 +94,11 @@ systemctl is-enabled spire-server \
     > "${EVIDENCE_DIR}/spire-server-service-enabled.txt"
 
 spire-server healthcheck \
-    -socketPath "${SERVER_SOCKET}" \
+    -socketPath "${SPIRE_SERVER_SOCKET}" \
     &> "${EVIDENCE_DIR}/spire-server-healthcheck.txt"
 
 spire-server bundle show \
-    -socketPath "${SERVER_SOCKET}" \
+    -socketPath "${SPIRE_SERVER_SOCKET}" \
     &> "${EVIDENCE_DIR}/spire-server-bundle.txt"
 
 if cmp -s "${REPOSITORY_DIR}/config/server.conf" \
@@ -125,17 +131,79 @@ systemctl is-enabled spire-agent \
     > "${EVIDENCE_DIR}/spire-agent-service-enabled.txt"
 
 spire-agent healthcheck \
-    -socketPath "${AGENT_SOCKET}" \
+    -socketPath "${SPIRE_AGENT_SOCKET}" \
     &> "${EVIDENCE_DIR}/spire-agent-healthcheck.txt"
 
-stat "${AGENT_SOCKET}" \
+stat "${SPIRE_AGENT_SOCKET}" \
     > "${EVIDENCE_DIR}/workload-api-socket.txt"
 
-if [[ -e "${JOIN_TOKEN_FILE}" ]]; then
+if [[ -e "${SPIRE_AGENT_JOIN_TOKEN_FILE}" ]]; then
     echo "present"
 else
     echo "removed_after_attestation"
 fi > "${EVIDENCE_DIR}/join-token-status.txt"
+
+echo "[evidence] Registrando workload key-value store..."
+
+systemctl is-active kv-store \
+    > "${EVIDENCE_DIR}/kv-store-service-status.txt"
+
+systemctl is-enabled kv-store \
+    > "${EVIDENCE_DIR}/kv-store-service-enabled.txt"
+
+docker inspect "${KV_CONTAINER_NAME}" \
+    > "${EVIDENCE_DIR}/kv-store-container.json"
+
+docker image inspect "${KEY_STORE_IMAGE}" \
+    --format '{{index .RepoDigests 0}}' \
+    > "${EVIDENCE_DIR}/kv-image-digest.txt"
+
+docker ps \
+    --filter "name=${KV_CONTAINER_NAME}" \
+    > "${EVIDENCE_DIR}/kv-docker-ps.txt"
+
+docker inspect "${KV_CONTAINER_NAME}" \
+    --format '{{ index .Config.Labels "spire.workload" }}' \
+    > "${EVIDENCE_DIR}/kv-store-spire-label.txt"
+
+docker inspect "${KV_CONTAINER_NAME}" \
+    --format '{{ index .Config.Labels "spire.app" }}' \
+    > "${EVIDENCE_DIR}/kv-store-spire-app-label.txt"
+
+docker inspect "${KV_CONTAINER_NAME}" \
+    --format '{{ index .Config.Labels "spire.component" }}' \
+    > "${EVIDENCE_DIR}/kv-store-spire-component-label.txt"
+
+if [[ -f "${EVIDENCE_DIR}/kv-store/identity.json" ]]; then
+    cp "${EVIDENCE_DIR}/kv-store/identity.json" \
+        "${EVIDENCE_DIR}/kv-store-identity.json"
+    echo "present"
+else
+    echo "missing"
+fi > "${EVIDENCE_DIR}/kv-store-identity-status.txt"
+
+curl \
+    --fail \
+    --silent \
+    --show-error \
+    http://127.0.0.1:8080/identity \
+    > "${EVIDENCE_DIR}/kv-store-identity-response.json"
+
+docker logs "${KV_CONTAINER_NAME}" \
+    > "${EVIDENCE_DIR}/kv-store-logs.txt" \
+    2>&1
+
+spire-server entry show \
+    -socketPath "${SPIRE_SERVER_SOCKET}" \
+    -spiffeID "${KV_SPIFFE_ID}" \
+    &> "${EVIDENCE_DIR}/kv-entry-show.txt"
+
+if grep -Fq "${KV_SPIFFE_ID}" "${EVIDENCE_DIR}/kv-entry-show.txt"; then
+    echo "present"
+else
+    echo "missing"
+fi > "${EVIDENCE_DIR}/kv-store-registration-entry.txt"
+
 
 echo "[evidence] Calculando hashes dos artefatos..."
 

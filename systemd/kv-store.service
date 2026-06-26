@@ -1,0 +1,29 @@
+[Unit]
+Description=Key-value store workload for SPIRE demo
+After=docker.service spire-agent.service
+Requires=docker.service spire-agent.service
+
+[Service]
+Type=simple
+EnvironmentFile=/opt/spire-demo/config/runtime.env
+ExecStartPre=-/usr/bin/docker rm -f ${KV_CONTAINER_NAME}
+ExecStart=/usr/bin/docker run \
+    --name ${KV_CONTAINER_NAME} \
+    --label ${KV_WORKLOAD_LABEL_KEY}=${KV_WORKLOAD_LABEL_VALUE} \
+    --label ${KV_APP_LABEL_KEY}=${KV_APP_LABEL_VALUE} \
+    --label ${KV_COMPONENT_LABEL_KEY}=${KV_COMPONENT_LABEL_VALUE} \
+    --user 0 \
+    --publish 127.0.0.1:8080:8080 \
+    --env SPIRE_AGENT_BINARY=${SPIRE_AGENT_BINARY} \
+    --env SPIRE_AGENT_SOCKET=${SPIRE_AGENT_SOCKET} \
+    --env IDENTITY_FILE=/var/lib/key-store-demo/identity.json \
+    --volume ${SPIRE_AGENT_SOCKET_DIR}:${SPIRE_AGENT_SOCKET_DIR} \
+    --volume ${SPIRE_AGENT_BINARY}:${SPIRE_AGENT_BINARY}:ro \
+    --volume ${KV_EVIDENCE_DIR}:/var/lib/key-store-demo \
+    ${KEY_STORE_IMAGE}
+ExecStop=/usr/bin/docker stop ${KV_CONTAINER_NAME}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
