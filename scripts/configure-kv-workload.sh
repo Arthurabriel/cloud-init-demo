@@ -85,6 +85,7 @@ else
         "${KV_SELECTOR_1}"
         "${KV_SELECTOR_2}"
         "${KV_SELECTOR_3}"
+        "${KV_SELECTOR_4}"
     )
 
     ENTRY_CREATE_ARGS=(
