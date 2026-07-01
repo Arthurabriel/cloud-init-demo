@@ -230,7 +230,7 @@ if curl \
     --max-time 5 \
     --output /dev/null \
     --write-out "%{http_code}\n" \
-    http://127.0.0.1:8088/ \
+    http://127.0.0.1:8081/ \
     > "${EVIDENCE_DIR}/spire-chat-agent-http-status.txt" \
     2>&1; then
     true

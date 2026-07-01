@@ -14,7 +14,7 @@ ExecStart=/usr/bin/docker run \
     --env MCP_TRANSPORT=http \
     --env MCP_SERVER_URL=http://127.0.0.1:8000/mcp \
     --env CHAT_AGENT_HOST=0.0.0.0 \
-    --env CHAT_AGENT_PORT=8088 \
+    --env CHAT_AGENT_PORT=8081 \
     ${SPIRE_CHAT_AGENT_IMAGE}
 ExecStop=/usr/bin/docker stop ${SPIRE_CHAT_AGENT_CONTAINER_NAME}
 Restart=always

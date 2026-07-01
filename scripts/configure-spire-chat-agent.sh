@@ -58,11 +58,11 @@ echo "[spire-chat-agent] Iniciando servico..."
 
 systemctl start spire-chat-agent
 
-echo "[spire-chat-agent] Aguardando UI em http://127.0.0.1:8088/..."
+echo "[spire-chat-agent] Aguardando UI em http://127.0.0.1:8081/..."
 
 for attempt in $(seq 1 30); do
-    if curl --fail --silent --show-error --max-time 2 http://127.0.0.1:8088/ >/dev/null; then
-        echo "[spire-chat-agent] UI disponivel em http://0.0.0.0:8088/."
+    if curl --fail --silent --show-error --max-time 2 http://127.0.0.1:8081/ >/dev/null; then
+        echo "[spire-chat-agent] UI disponivel em http://0.0.0.0:8081/."
         exit 0
     fi
 
