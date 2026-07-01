@@ -1,0 +1,24 @@
+[Unit]
+Description=SPIRE graphical chat agent
+After=docker.service spire-mcp.service
+Requires=docker.service spire-mcp.service
+
+[Service]
+Type=simple
+EnvironmentFile=/opt/spire-demo/config/runtime.env
+ExecStartPre=-/usr/bin/docker rm -f ${SPIRE_CHAT_AGENT_CONTAINER_NAME}
+ExecStart=/usr/bin/docker run \
+    --name ${SPIRE_CHAT_AGENT_CONTAINER_NAME} \
+    --network host \
+    --env-file /etc/spire-demo/agent.env \
+    --env MCP_TRANSPORT=http \
+    --env MCP_SERVER_URL=http://127.0.0.1:8000/mcp \
+    --env CHAT_AGENT_HOST=0.0.0.0 \
+    --env CHAT_AGENT_PORT=8088 \
+    ${SPIRE_CHAT_AGENT_IMAGE}
+ExecStop=/usr/bin/docker stop ${SPIRE_CHAT_AGENT_CONTAINER_NAME}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

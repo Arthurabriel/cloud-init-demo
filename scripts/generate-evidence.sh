@@ -208,6 +208,36 @@ else
     echo "missing"
 fi > "${EVIDENCE_DIR}/kv-store-registration-entry.txt"
 
+echo "[evidence] Registrando agente grafico SPIRE..."
+
+if [[ -f /etc/spire-demo/agent.env ]]; then
+    echo "present"
+else
+    echo "missing"
+fi > "${EVIDENCE_DIR}/spire-chat-agent-env-status.txt"
+
+systemctl is-active spire-chat-agent \
+    > "${EVIDENCE_DIR}/spire-chat-agent-service-status.txt" \
+    2>&1 || true
+
+systemctl is-enabled spire-chat-agent \
+    > "${EVIDENCE_DIR}/spire-chat-agent-service-enabled.txt" \
+    2>&1 || true
+
+if curl \
+    --silent \
+    --show-error \
+    --max-time 5 \
+    --output /dev/null \
+    --write-out "%{http_code}\n" \
+    http://127.0.0.1:8088/ \
+    > "${EVIDENCE_DIR}/spire-chat-agent-http-status.txt" \
+    2>&1; then
+    true
+else
+    echo "unavailable" >> "${EVIDENCE_DIR}/spire-chat-agent-http-status.txt"
+fi
+
 
 echo "[evidence] Calculando hashes dos artefatos..."
 
