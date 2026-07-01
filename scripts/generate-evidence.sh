@@ -158,6 +158,10 @@ docker image inspect "${KEY_STORE_IMAGE}" \
     --format '{{index .RepoDigests 0}}' \
     > "${EVIDENCE_DIR}/kv-image-digest.txt"
 
+docker image inspect "${KEY_STORE_IMAGE}" \
+    --format '{{.Id}}' \
+    > "${EVIDENCE_DIR}/kv-image-config-digest.txt"
+
 docker ps \
     --filter "name=${KV_CONTAINER_NAME}" \
     > "${EVIDENCE_DIR}/kv-docker-ps.txt"

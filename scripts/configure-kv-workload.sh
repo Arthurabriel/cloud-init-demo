@@ -24,6 +24,15 @@ echo "[kv-store] Baixando imagem pública..."
 
 docker pull "${KEY_STORE_IMAGE}"
 
+KV_IMAGE_CONFIG_DIGEST="$(docker image inspect "${KEY_STORE_IMAGE}" --format '{{.Id}}')"
+
+if [[ -z "${KV_IMAGE_CONFIG_DIGEST}" || "${KV_IMAGE_CONFIG_DIGEST}" != sha256:* ]]; then
+    echo "[kv-store] Não foi possível extrair o config digest da imagem: ${KEY_STORE_IMAGE}" >&2
+    exit 1
+fi
+
+KV_IMAGE_CONFIG_DIGEST_SELECTOR="docker:image_config_digest:${KV_IMAGE_CONFIG_DIGEST}"
+
 install -d \
     -o root \
     -g root \
@@ -85,7 +94,7 @@ else
         "${KV_SELECTOR_1}"
         "${KV_SELECTOR_2}"
         "${KV_SELECTOR_3}"
-        "${KV_SELECTOR_4}"
+        "${KV_IMAGE_CONFIG_DIGEST_SELECTOR}"
     )
 
     ENTRY_CREATE_ARGS=(
