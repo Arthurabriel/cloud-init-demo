@@ -11,6 +11,7 @@ if [[ ! -f "${RUNTIME_ENV}" ]]; then
     exit 1
 fi
 
+# shellcheck source=cloud-init-spire-instance/config/runtime.env
 source "${RUNTIME_ENV}"
 
 echo "[kv-store] Configurando workload key-value store..."
@@ -22,16 +23,23 @@ fi
 
 echo "[kv-store] Baixando imagem pública..."
 
-docker pull "${KEY_STORE_IMAGE}"
+docker pull "${KEY_STORE_IMAGE_REF}"
 
-KV_IMAGE_CONFIG_DIGEST="$(docker image inspect "${KEY_STORE_IMAGE}" --format '{{.Id}}')"
+KV_ACTUAL_IMAGE_CONFIG_DIGEST="$(docker image inspect "${KEY_STORE_IMAGE_REF}" --format '{{.Id}}')"
 
-if [[ -z "${KV_IMAGE_CONFIG_DIGEST}" || "${KV_IMAGE_CONFIG_DIGEST}" != sha256:* ]]; then
-    echo "[kv-store] Não foi possível extrair o config digest da imagem: ${KEY_STORE_IMAGE}" >&2
+if [[ -z "${KV_ACTUAL_IMAGE_CONFIG_DIGEST}" || "${KV_ACTUAL_IMAGE_CONFIG_DIGEST}" != sha256:* ]]; then
+    echo "[kv-store] Não foi possível extrair o config digest da imagem: ${KEY_STORE_IMAGE_REF}" >&2
     exit 1
 fi
 
-KV_IMAGE_CONFIG_DIGEST_SELECTOR="docker:image_config_digest:${KV_IMAGE_CONFIG_DIGEST}"
+if ! [[ "${KV_ACTUAL_IMAGE_CONFIG_DIGEST}" == "${KEY_STORE_IMAGE_CONFIG_DIGEST}" ]]; then
+    echo "[kv-store] Config digest inesperado para ${KEY_STORE_IMAGE_REF}." >&2
+    echo "[kv-store] Esperado: ${KEY_STORE_IMAGE_CONFIG_DIGEST}" >&2
+    echo "[kv-store] Atual: ${KV_ACTUAL_IMAGE_CONFIG_DIGEST}" >&2
+    exit 1
+fi
+
+KV_IMAGE_CONFIG_DIGEST_SELECTOR="docker:image_config_digest:${KEY_STORE_IMAGE_CONFIG_DIGEST}"
 
 install -d \
     -o root \

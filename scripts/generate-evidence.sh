@@ -10,7 +10,6 @@ if [[ ! -f "${RUNTIME_ENV}" ]]; then
     exit 1
 fi
 
-# shellcheck disable=SC1090
 source "${RUNTIME_ENV}"
 
 mkdir -p "${EVIDENCE_DIR}"
@@ -154,13 +153,19 @@ systemctl is-enabled kv-store \
 docker inspect "${KV_CONTAINER_NAME}" \
     > "${EVIDENCE_DIR}/kv-store-container.json"
 
-docker image inspect "${KEY_STORE_IMAGE}" \
+docker image inspect "${KEY_STORE_IMAGE_REF}" \
     --format '{{index .RepoDigests 0}}' \
     > "${EVIDENCE_DIR}/kv-image-digest.txt"
 
-docker image inspect "${KEY_STORE_IMAGE}" \
+docker image inspect "${KEY_STORE_IMAGE_REF}" \
     --format '{{.Id}}' \
     > "${EVIDENCE_DIR}/kv-image-config-digest.txt"
+
+printf '%s\n' "${KEY_STORE_IMAGE_REF}" \
+    > "${EVIDENCE_DIR}/kv-image-ref.txt"
+
+printf '%s\n' "${KEY_STORE_IMAGE_CONFIG_DIGEST}" \
+    > "${EVIDENCE_DIR}/kv-expected-image-config-digest.txt"
 
 docker ps \
     --filter "name=${KV_CONTAINER_NAME}" \

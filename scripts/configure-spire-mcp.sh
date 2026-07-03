@@ -11,7 +11,6 @@ if [[ ! -f "${RUNTIME_ENV}" ]]; then
     exit 1
 fi
 
-# shellcheck disable=SC1090
 source "${RUNTIME_ENV}"
 
 echo "[spire-mcp] Configurando MCP do SPIRE..."
