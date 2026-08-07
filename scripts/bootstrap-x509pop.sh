@@ -48,7 +48,7 @@ chmod +x \
     "${REPOSITORY_DIR}/scripts/configure-spire-agent-x509pop.sh" \
     "${REPOSITORY_DIR}/scripts/run-spire-agent-x509pop.sh" \
     "${REPOSITORY_DIR}/scripts/configure-kv-workload.sh" \
-    "${REPOSITORY_DIR}/scripts/configure-spire-mcp.sh" \
+    "${REPOSITORY_DIR}/scripts/configure-spire-evidence-adapter.sh" \
     "${REPOSITORY_DIR}/scripts/configure-spire-chat-agent.sh"
 
 echo "[bootstrap-x509pop] Instalando Docker..."
@@ -73,7 +73,7 @@ echo "[bootstrap-x509pop] Configurando workload key-value store..."
 
 echo "[bootstrap-x509pop] Configurando SPIRE MCP..."
 
-"${REPOSITORY_DIR}/scripts/configure-spire-mcp.sh"
+"${REPOSITORY_DIR}/scripts/configure-spire-evidence-adapter.sh"
 
 echo "[bootstrap-x509pop] Configurando agente grafico SPIRE..."
 

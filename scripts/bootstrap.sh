@@ -26,7 +26,7 @@ chmod +x \
     "${REPOSITORY_DIR}/scripts/configure-spire-agent.sh" \
     "${REPOSITORY_DIR}/scripts/configure-spire-server.sh" \
     "${REPOSITORY_DIR}/scripts/configure-kv-workload.sh" \
-    "${REPOSITORY_DIR}/scripts/configure-spire-mcp.sh" \
+    "${REPOSITORY_DIR}/scripts/configure-spire-evidence-adapter.sh" \
     "${REPOSITORY_DIR}/scripts/configure-spire-chat-agent.sh"
 
 echo "[bootstrap] Instalando Docker..."
@@ -51,7 +51,7 @@ echo "[bootstrap] Configurando workload key-value store..."
 
 echo "[bootstrap] Configurando SPIRE MCP..."
 
-"${REPOSITORY_DIR}/scripts/configure-spire-mcp.sh"
+"${REPOSITORY_DIR}/scripts/configure-spire-evidence-adapter.sh"
 
 echo "[bootstrap] Configurando agente grafico SPIRE..."
 

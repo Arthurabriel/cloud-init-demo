@@ -1,7 +1,7 @@
 [Unit]
 Description=SPIRE graphical chat agent
-After=docker.service spire-mcp.service
-Requires=docker.service spire-mcp.service
+After=docker.service spire-evidence-adapter.service
+Requires=docker.service spire-evidence-adapter.service
 
 [Service]
 Type=simple
