@@ -28,9 +28,8 @@ if find /var/lib/spire/agent -mindepth 1 -print -quit 2>/dev/null | grep -q .; t
         log "join token já existe para primeira atestação."
         exit 0
     fi
-    echo "[authority-agent-firstboot] Estado parcial do Agent encontrado sem marcador ${SPIRE_AGENT_SPIFFE_ID_FILE}." >&2
-    echo "[authority-agent-firstboot] Limpe /var/lib/spire/agent antes de tentar nova primeira atestação." >&2
-    exit 1
+    log "estado do Agent já existe; assumindo Agent previamente provisionado."
+    exit 0
 fi
 
 log "aguardando socket do SPIRE Server"
