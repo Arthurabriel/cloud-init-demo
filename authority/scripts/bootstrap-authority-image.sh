@@ -44,6 +44,27 @@ log() {
     printf '[authority-bootstrap] %s\n' "$*"
 }
 
+wait_for_command() {
+    local description="$1"
+    local attempts="$2"
+    local sleep_seconds="$3"
+    shift 3
+
+    for attempt in $(seq 1 "${attempts}"); do
+        if "$@" >/dev/null 2>&1; then
+            log "${description} disponível"
+            return 0
+        fi
+
+        if [[ "${attempt}" -eq "${attempts}" ]]; then
+            echo "[authority-bootstrap] timeout aguardando ${description}" >&2
+            return 1
+        fi
+
+        sleep "${sleep_seconds}"
+    done
+}
+
 require_file() {
     local file="$1"
     if [[ ! -f "${file}" ]]; then
@@ -134,6 +155,11 @@ install_systemd_units() {
     install_unit "${AUTHORITY_DIR}/systemd/spire-evidence-adapter.service.d/authority-image.conf" \
         /etc/systemd/system/spire-evidence-adapter.service.d/authority-image.conf
 
+    require_file "${AUTHORITY_DIR}/scripts/remove-agent-join-token-after-healthcheck.sh"
+    install -o root -g root -m 0755 \
+        "${AUTHORITY_DIR}/scripts/remove-agent-join-token-after-healthcheck.sh" \
+        /opt/spire-demo/authority/scripts/remove-agent-join-token-after-healthcheck.sh
+
     systemctl daemon-reload
 }
 
@@ -169,17 +195,51 @@ validate_configs() {
 }
 
 start_core() {
+    local runtime_env="${REPOSITORY_DIR}/config/runtime.env"
+
     if [[ "${START_CORE}" != "true" ]]; then
         log "start do core pulado por --no-start"
         systemctl enable authority-core.target
         return 0
     fi
 
-    log "habilitando e iniciando authority-core.target"
-    systemctl enable --now authority-core.target
+    require_file "${runtime_env}"
+    # shellcheck disable=SC1090
+    source "${runtime_env}"
+
+    log "habilitando authority-core.target"
+    systemctl enable authority-core.target
+
+    log "iniciando SPIRE Server"
+    systemctl start spire-server
+    wait_for_command \
+        "healthcheck do SPIRE Server" \
+        30 \
+        2 \
+        spire-server healthcheck -socketPath "${SPIRE_SERVER_SOCKET}"
+
+    log "executando first boot provisioning do Agent"
+    systemctl start authority-agent-firstboot
+
+    log "iniciando SPIRE Agent"
+    systemctl start spire-agent
+    wait_for_command \
+        "healthcheck do SPIRE Agent" \
+        30 \
+        2 \
+        spire-agent healthcheck -socketPath "${SPIRE_AGENT_SOCKET}"
+
+    log "iniciando Evidence Service"
+    systemctl start spire-evidence-adapter
+    wait_for_command \
+        "container do Evidence Service" \
+        30 \
+        2 \
+        docker inspect -f '{{.State.Running}}' "${SPIRE_EVIDENCE_ADAPTER_CONTAINER_NAME}"
 
     log "validando serviços core"
     systemctl is-active --quiet spire-server
+    systemctl is-active --quiet authority-agent-firstboot
     systemctl is-active --quiet spire-agent
     systemctl is-active --quiet spire-evidence-adapter
 }

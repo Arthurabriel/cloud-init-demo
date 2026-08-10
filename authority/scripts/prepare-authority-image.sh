@@ -140,6 +140,12 @@ install_authority_targets() {
         "${source_dir}/spire-evidence-adapter.service.d/authority-image.conf" \
         "${target_dir}/spire-evidence-adapter.service.d/authority-image.conf"
 
+    if [[ "${ROOT}" == "/" ]]; then
+        install -m 0755 \
+            "${AUTHORITY_DIR}/scripts/remove-agent-join-token-after-healthcheck.sh" \
+            "$(path_in_root /opt/spire-demo/authority/scripts/remove-agent-join-token-after-healthcheck.sh)"
+    fi
+
     if [[ "${ROOT}" == "/" ]] && command -v systemctl >/dev/null 2>&1; then
         systemctl daemon-reload
         systemctl disable kv-store.service spire-chat-agent.service >/dev/null 2>&1 || true

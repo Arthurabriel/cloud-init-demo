@@ -28,8 +28,9 @@ if find /var/lib/spire/agent -mindepth 1 -print -quit 2>/dev/null | grep -q .; t
         log "join token já existe para primeira atestação."
         exit 0
     fi
-    log "estado do Agent já existe; assumindo Agent previamente provisionado."
-    exit 0
+    echo "[authority-agent-firstboot] Estado parcial do Agent encontrado sem marcador ${SPIRE_AGENT_SPIFFE_ID_FILE}." >&2
+    echo "[authority-agent-firstboot] Limpe /var/lib/spire/agent antes de tentar nova primeira atestação." >&2
+    exit 1
 fi
 
 log "aguardando socket do SPIRE Server"
@@ -44,10 +45,31 @@ for attempt in $(seq 1 30); do
     sleep 2
 done
 
+log "aguardando healthcheck do SPIRE Server"
+for attempt in $(seq 1 30); do
+    if spire-server healthcheck -socketPath "${SPIRE_SERVER_SOCKET}" >/dev/null 2>&1; then
+        break
+    fi
+    if [[ "${attempt}" -eq 30 ]]; then
+        echo "[authority-agent-firstboot] SPIRE Server não ficou saudável." >&2
+        exit 1
+    fi
+    sleep 2
+done
+
 log "exportando trust bundle público para o Agent"
-spire-server bundle show \
-    -socketPath "${SPIRE_SERVER_SOCKET}" \
-    > "${BUNDLE_TARGET}"
+for attempt in $(seq 1 30); do
+    if spire-server bundle show \
+        -socketPath "${SPIRE_SERVER_SOCKET}" \
+        > "${BUNDLE_TARGET}"; then
+        break
+    fi
+    if [[ "${attempt}" -eq 30 ]]; then
+        echo "[authority-agent-firstboot] Não foi possível exportar trust bundle." >&2
+        exit 1
+    fi
+    sleep 2
+done
 chown root:spire-agent "${BUNDLE_TARGET}"
 chmod 0640 "${BUNDLE_TARGET}"
 
