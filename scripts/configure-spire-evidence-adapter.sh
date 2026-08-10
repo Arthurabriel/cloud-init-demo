@@ -22,7 +22,17 @@ fi
 
 echo "[spire-evidence-adapter] Baixando imagem pública..."
 
-docker pull "${SPIRE_EVIDENCE_ADAPTER_IMAGE}"
+if ! docker pull "${SPIRE_EVIDENCE_ADAPTER_IMAGE}"; then
+    cat >&2 <<EOF
+[spire-evidence-adapter] Nao foi possivel baixar a imagem:
+[spire-evidence-adapter]   ${SPIRE_EVIDENCE_ADAPTER_IMAGE}
+[spire-evidence-adapter]
+[spire-evidence-adapter] Publique essa imagem em um registry acessivel pela VM
+[spire-evidence-adapter] ou ajuste SPIRE_EVIDENCE_ADAPTER_IMAGE em:
+[spire-evidence-adapter]   ${RUNTIME_ENV}
+EOF
+    exit 1
+fi
 
 install \
     -o root \
