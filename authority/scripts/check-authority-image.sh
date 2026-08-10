@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="${AUTHORITY_ROOT:-/}"
-REPOSITORY_DIR="${AUTHORITY_REPOSITORY_DIR:-/opt/spire-demo}"
+AUTHORITY_DIR="${AUTHORITY_DIR:-/opt/spire-demo/authority}"
 
 FAILURES=0
 WARNINGS=0
@@ -73,9 +73,7 @@ check_core_files() {
     require_file "$(path_in_root /etc/systemd/system/spire-server.service)" "unit spire-server"
     require_file "$(path_in_root /etc/systemd/system/spire-agent.service)" "unit spire-agent"
     require_file "$(path_in_root /etc/systemd/system/spire-evidence-adapter.service)" "unit Evidence Service"
-    require_file "$(path_in_root /etc/systemd/system/authority-agent-firstboot.service)" "unit first boot do Agent"
-    require_file "$(path_in_root /etc/systemd/system/spire-agent.service.d/authority-image.conf)" "drop-in ordering/remocao token do Agent"
-    require_file "$(path_in_root /etc/systemd/system/spire-evidence-adapter.service.d/authority-image.conf)" "drop-in ordering do Evidence Service"
+    require_file "$(path_in_root /opt/spire-demo/authority/scripts/authority-firstboot.sh)" "script first boot linear da Authority"
 }
 
 check_targets() {
@@ -158,7 +156,7 @@ check_known_secrets() {
 check_manifest() {
     local manifest
     manifest="$(mktemp /tmp/authority-manifest.XXXXXX.json)"
-    if AUTHORITY_ROOT="${ROOT}" AUTHORITY_REPOSITORY_DIR="${REPOSITORY_DIR}" \
+    if AUTHORITY_ROOT="${ROOT}" AUTHORITY_REPOSITORY_DIR="${AUTHORITY_DIR}" \
         python3 "$(dirname "$0")/generate-authority-manifest.py" --output "${manifest}" >/dev/null; then
         log_ok "manifesto gerável: ${manifest}"
     else

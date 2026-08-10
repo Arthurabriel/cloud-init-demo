@@ -1,8 +1,8 @@
 [Unit]
 Description=PGID Authority core services
 Documentation=file:/opt/spire-demo/authority/docs/authority-image.md
-Requires=spire-server.service authority-agent-firstboot.service spire-agent.service spire-evidence-adapter.service
-After=network-online.target docker.service spire-server.service authority-agent-firstboot.service spire-agent.service spire-evidence-adapter.service
+Requires=spire-server.service spire-agent.service spire-evidence-adapter.service
+After=network-online.target docker.service spire-server.service spire-agent.service spire-evidence-adapter.service
 Wants=network-online.target docker.service
 
 [Install]

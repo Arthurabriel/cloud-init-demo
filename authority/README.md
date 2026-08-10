@@ -11,7 +11,7 @@ pgid-authority-v1
 Para a VM nova que ainda vai virar snapshot, use o cloud-init de build:
 
 ```text
-cloud-init-spire-instance/cloud-init/authority-build.yaml
+authority/cloud-init/authority-build.yaml
 ```
 
 Esse cloud-init clona o repositório em `/opt/spire-demo` e executa:
@@ -20,7 +20,15 @@ Esse cloud-init clona o repositório em `/opt/spire-demo` e executa:
 /opt/spire-demo/authority/scripts/bootstrap-authority-image.sh
 ```
 
-Esse bootstrap instala Docker, instala SPIRE, copia `server.conf` e `agent.conf`, instala as units do core, baixa a imagem do Evidence Service e inicia `authority-core.target`.
+Esse bootstrap instala Docker, instala SPIRE, copia `server.conf` e `agent.conf`, instala as units do core, baixa a imagem do Evidence Service e chama o first boot linear da Authority.
+
+O fluxo da Authority é autocontido neste diretório:
+
+- `authority/config`;
+- `authority/systemd`;
+- `authority/scripts`.
+
+O diretório `cloud-init-spire-instance/` permanece separado como demo/fluxo antigo.
 
 Ele não executa o bootstrap antigo da demo e não chama:
 
@@ -41,21 +49,23 @@ sudo ./scripts/check-authority-image.sh
 Em uma VM criada a partir da imagem sanitizada, use o cloud-init mínimo:
 
 ```text
-cloud-init-spire-instance/cloud-init/authority-firstboot.yaml
+authority/cloud-init/authority-firstboot.yaml
 ```
 
-Ele não reinstala SPIRE nem Docker. Ele apenas inicia o core:
+Ele não reinstala SPIRE nem Docker. Ele chama:
 
 ```bash
-sudo systemctl enable --now authority-core.target
+sudo /opt/spire-demo/authority/scripts/authority-firstboot.sh
 ```
 
 O ordering esperado é:
 
 ```text
-spire-server.service
-  -> authority-agent-firstboot.service
+authority-firstboot.sh
+  -> spire-server.service
+  -> gera join token se /var/lib/spire/agent estiver vazio
   -> spire-agent.service
+  -> remove join token após healthcheck
   -> spire-evidence-adapter.service
 ```
 
@@ -63,7 +73,6 @@ spire-server.service
 
 ```bash
 sudo systemctl status spire-server --no-pager -l
-sudo systemctl status authority-agent-firstboot --no-pager -l
 sudo systemctl status spire-agent --no-pager -l
 sudo systemctl status spire-evidence-adapter --no-pager -l
 ```

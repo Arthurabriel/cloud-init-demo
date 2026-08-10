@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPOSITORY_DIR="${AUTHORITY_REPOSITORY_DIR:-/opt/spire-demo}"
-AUTHORITY_DIR="${AUTHORITY_DIR:-${REPOSITORY_DIR}/authority}"
+AUTHORITY_DIR="${AUTHORITY_DIR:-/opt/spire-demo/authority}"
 LOG_FILE="${AUTHORITY_BOOTSTRAP_LOG:-/var/log/pgid-authority-bootstrap.log}"
 COMPLETE_FILE="${AUTHORITY_BOOTSTRAP_COMPLETE:-/var/lib/pgid-authority/bootstrap-complete}"
 START_CORE=true
@@ -42,27 +41,6 @@ exec > >(tee -a "${LOG_FILE}") 2>&1
 
 log() {
     printf '[authority-bootstrap] %s\n' "$*"
-}
-
-wait_for_command() {
-    local description="$1"
-    local attempts="$2"
-    local sleep_seconds="$3"
-    shift 3
-
-    for attempt in $(seq 1 "${attempts}"); do
-        if "$@" >/dev/null 2>&1; then
-            log "${description} disponível"
-            return 0
-        fi
-
-        if [[ "${attempt}" -eq "${attempts}" ]]; then
-            echo "[authority-bootstrap] timeout aguardando ${description}" >&2
-            return 1
-        fi
-
-        sleep "${sleep_seconds}"
-    done
 }
 
 require_file() {
@@ -125,70 +103,58 @@ create_users_and_dirs() {
 install_static_configs() {
     log "instalando configurações estáticas do SPIRE"
 
-    require_file "${REPOSITORY_DIR}/config/server.conf"
-    require_file "${REPOSITORY_DIR}/config/agent.conf"
-    require_file "${REPOSITORY_DIR}/scripts/run-spire-agent.sh"
+    require_file "${AUTHORITY_DIR}/config/server.conf"
+    require_file "${AUTHORITY_DIR}/config/agent.conf"
+    require_file "${AUTHORITY_DIR}/scripts/run-spire-agent.sh"
 
     install -o root -g spire-server -m 0640 \
-        "${REPOSITORY_DIR}/config/server.conf" \
+        "${AUTHORITY_DIR}/config/server.conf" \
         /etc/spire/server.conf
 
     install -o root -g spire-agent -m 0640 \
-        "${REPOSITORY_DIR}/config/agent.conf" \
+        "${AUTHORITY_DIR}/config/agent.conf" \
         /etc/spire/agent.conf
 
     install -o root -g root -m 0755 \
-        "${REPOSITORY_DIR}/scripts/run-spire-agent.sh" \
+        "${AUTHORITY_DIR}/scripts/run-spire-agent.sh" \
         /usr/local/sbin/run-spire-agent
 }
 
 install_systemd_units() {
     log "instalando units systemd core"
 
-    install_unit "${REPOSITORY_DIR}/systemd/spire-server.service" \
+    install_unit "${AUTHORITY_DIR}/systemd/spire-server.service" \
         /etc/systemd/system/spire-server.service
-    install_unit "${REPOSITORY_DIR}/systemd/spire-agent.service" \
+    install_unit "${AUTHORITY_DIR}/systemd/spire-agent.service" \
         /etc/systemd/system/spire-agent.service
-    install_unit "${REPOSITORY_DIR}/systemd/spire-evidence-adapter.service" \
+    install_unit "${AUTHORITY_DIR}/systemd/spire-evidence-adapter.service" \
         /etc/systemd/system/spire-evidence-adapter.service
 
     install_unit "${AUTHORITY_DIR}/systemd/authority-core.target" \
         /etc/systemd/system/authority-core.target
     install_unit "${AUTHORITY_DIR}/systemd/authority-demo.target" \
         /etc/systemd/system/authority-demo.target
-    install_unit "${AUTHORITY_DIR}/systemd/authority-agent-firstboot.service" \
-        /etc/systemd/system/authority-agent-firstboot.service
-
-    install -d -o root -g root -m 0755 \
-        /etc/systemd/system/spire-agent.service.d \
-        /etc/systemd/system/spire-evidence-adapter.service.d
-
-    install_unit "${AUTHORITY_DIR}/systemd/spire-agent.service.d/authority-image.conf" \
-        /etc/systemd/system/spire-agent.service.d/authority-image.conf
-    install_unit "${AUTHORITY_DIR}/systemd/spire-evidence-adapter.service.d/authority-image.conf" \
-        /etc/systemd/system/spire-evidence-adapter.service.d/authority-image.conf
-
     install_script_if_needed \
-        "${AUTHORITY_DIR}/scripts/remove-agent-join-token-after-healthcheck.sh" \
-        /opt/spire-demo/authority/scripts/remove-agent-join-token-after-healthcheck.sh
+        "${AUTHORITY_DIR}/scripts/authority-firstboot.sh" \
+        /opt/spire-demo/authority/scripts/authority-firstboot.sh
 
     systemctl daemon-reload
 }
 
 install_runtime() {
     log "instalando Docker"
-    require_file "${REPOSITORY_DIR}/scripts/install-docker.sh"
-    chmod +x "${REPOSITORY_DIR}/scripts/install-docker.sh"
-    "${REPOSITORY_DIR}/scripts/install-docker.sh"
+    require_file "${AUTHORITY_DIR}/scripts/install-docker.sh"
+    chmod +x "${AUTHORITY_DIR}/scripts/install-docker.sh"
+    "${AUTHORITY_DIR}/scripts/install-docker.sh"
 
     log "instalando SPIRE"
-    require_file "${REPOSITORY_DIR}/scripts/install-spire.sh"
-    chmod +x "${REPOSITORY_DIR}/scripts/install-spire.sh"
-    "${REPOSITORY_DIR}/scripts/install-spire.sh"
+    require_file "${AUTHORITY_DIR}/scripts/install-spire.sh"
+    chmod +x "${AUTHORITY_DIR}/scripts/install-spire.sh"
+    AUTHORITY_DIR="${AUTHORITY_DIR}" "${AUTHORITY_DIR}/scripts/install-spire.sh"
 }
 
 install_evidence_service_image() {
-    local runtime_env="${REPOSITORY_DIR}/config/runtime.env"
+    local runtime_env="${AUTHORITY_DIR}/config/runtime.env"
     require_file "${runtime_env}"
 
     # shellcheck disable=SC1090
@@ -207,58 +173,23 @@ validate_configs() {
 }
 
 start_core() {
-    local runtime_env="${REPOSITORY_DIR}/config/runtime.env"
-
     if [[ "${START_CORE}" != "true" ]]; then
         log "start do core pulado por --no-start"
         systemctl enable authority-core.target
         return 0
     fi
 
-    require_file "${runtime_env}"
-    # shellcheck disable=SC1090
-    source "${runtime_env}"
-
-    log "habilitando authority-core.target"
-    systemctl enable authority-core.target
-
-    log "iniciando SPIRE Server"
-    systemctl start spire-server
-    wait_for_command \
-        "healthcheck do SPIRE Server" \
-        30 \
-        2 \
-        spire-server healthcheck -socketPath "${SPIRE_SERVER_SOCKET}"
-
-    log "executando first boot provisioning do Agent"
-    systemctl start authority-agent-firstboot
-
-    log "iniciando SPIRE Agent"
-    systemctl start spire-agent
-    wait_for_command \
-        "healthcheck do SPIRE Agent" \
-        30 \
-        2 \
-        spire-agent healthcheck -socketPath "${SPIRE_AGENT_SOCKET}"
-
-    log "iniciando Evidence Service"
-    systemctl start spire-evidence-adapter
-    wait_for_command \
-        "container do Evidence Service" \
-        30 \
-        2 \
-        docker inspect -f '{{.State.Running}}' "${SPIRE_EVIDENCE_ADAPTER_CONTAINER_NAME}"
+    log "executando firstboot linear da Authority"
+    "${AUTHORITY_DIR}/scripts/authority-firstboot.sh"
 
     log "validando serviços core"
     systemctl is-active --quiet spire-server
-    systemctl is-active --quiet authority-agent-firstboot
     systemctl is-active --quiet spire-agent
     systemctl is-active --quiet spire-evidence-adapter
 }
 
 main() {
     log "iniciando bootstrap build-time da Authority Image"
-    log "repositório: ${REPOSITORY_DIR}"
     log "authority: ${AUTHORITY_DIR}"
 
     install_runtime

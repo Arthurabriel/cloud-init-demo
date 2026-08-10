@@ -109,13 +109,10 @@ def build_manifest(
             or (repository_dir / "systemd/spire-agent.service").exists(),
             "evidence_service": (root / "etc/systemd/system/spire-evidence-adapter.service").exists()
             or (repository_dir / "systemd/spire-evidence-adapter.service").exists(),
-            "agent_firstboot_provisioning": (
-                root / "etc/systemd/system/authority-agent-firstboot.service"
+            "authority_firstboot_script": (
+                root / "opt/spire-demo/authority/scripts/authority-firstboot.sh"
             ).exists()
-            or (
-                Path(__file__).resolve().parents[1]
-                / "systemd/authority-agent-firstboot.service"
-            ).exists(),
+            or (Path(__file__).resolve().parents[1] / "scripts/authority-firstboot.sh").exists(),
             "demo_kv_store": (root / "etc/systemd/system/kv-store.service").exists()
             or (repository_dir / "systemd/kv-store.service").exists(),
             "demo_chat_agent": (root / "etc/systemd/system/spire-chat-agent.service").exists()
@@ -148,7 +145,7 @@ def main() -> int:
     parser.add_argument("--root", default=os.getenv("AUTHORITY_ROOT", "/"))
     parser.add_argument(
         "--repository-dir",
-        default=os.getenv("AUTHORITY_REPOSITORY_DIR", "/opt/spire-demo"),
+        default=os.getenv("AUTHORITY_REPOSITORY_DIR", "/opt/spire-demo/authority"),
     )
     parser.add_argument(
         "--authority-config",

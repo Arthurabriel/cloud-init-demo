@@ -2,7 +2,6 @@
 set -euo pipefail
 
 ROOT="${AUTHORITY_ROOT:-/}"
-REPOSITORY_DIR="${AUTHORITY_REPOSITORY_DIR:-/opt/spire-demo}"
 FINALIZE=false
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AUTHORITY_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -123,7 +122,7 @@ remove_known_containers() {
 install_authority_targets() {
     local source_dir
     local target_dir
-    source_dir="$(path_in_root "${REPOSITORY_DIR}/authority/systemd")"
+    source_dir="$(path_in_root /opt/spire-demo/authority/systemd)"
     target_dir="$(path_in_root /etc/systemd/system)"
 
     if [[ ! -d "${source_dir}" ]]; then
@@ -139,23 +138,12 @@ install_authority_targets() {
     install -m 0644 \
         "${source_dir}/authority-core.target" \
         "${source_dir}/authority-demo.target" \
-        "${source_dir}/authority-agent-firstboot.service" \
         "${target_dir}/"
-
-    install -d -m 0755 \
-        "${target_dir}/spire-agent.service.d" \
-        "${target_dir}/spire-evidence-adapter.service.d"
-    install -m 0644 \
-        "${source_dir}/spire-agent.service.d/authority-image.conf" \
-        "${target_dir}/spire-agent.service.d/authority-image.conf"
-    install -m 0644 \
-        "${source_dir}/spire-evidence-adapter.service.d/authority-image.conf" \
-        "${target_dir}/spire-evidence-adapter.service.d/authority-image.conf"
 
     if [[ "${ROOT}" == "/" ]]; then
         install_script_if_needed \
-            "${AUTHORITY_DIR}/scripts/remove-agent-join-token-after-healthcheck.sh" \
-            "$(path_in_root /opt/spire-demo/authority/scripts/remove-agent-join-token-after-healthcheck.sh)"
+            "${AUTHORITY_DIR}/scripts/authority-firstboot.sh" \
+            "$(path_in_root /opt/spire-demo/authority/scripts/authority-firstboot.sh)"
     fi
 
     if [[ "${ROOT}" == "/" ]] && command -v systemctl >/dev/null 2>&1; then
