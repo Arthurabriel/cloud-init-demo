@@ -1,0 +1,9 @@
+[Unit]
+Description=PGID Authority demo services
+Documentation=file:/opt/spire-demo/authority/docs/authority-image.md
+Requires=authority-core.target
+Wants=kv-store.service spire-chat-agent.service
+After=authority-core.target kv-store.service spire-chat-agent.service
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+[Unit]
+Description=Provision SPIRE Agent join token on first boot of Authority Image
+Documentation=file:/opt/spire-demo/authority/docs/authority-image.md
+After=spire-server.service
+Requires=spire-server.service
+Before=spire-agent.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/spire-demo/authority/scripts/provision-authority-agent-firstboot.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=authority-core.target
