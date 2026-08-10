@@ -75,6 +75,18 @@ remove_path() {
     fi
 }
 
+install_script_if_needed() {
+    local source="$1"
+    local target="$2"
+
+    if [[ "$(readlink -f "${source}")" == "$(readlink -f "${target}" 2>/dev/null || true)" ]]; then
+        chmod 0755 "${target}"
+        return 0
+    fi
+
+    install -m 0755 "${source}" "${target}"
+}
+
 empty_directory() {
     local target="$1"
     if [[ ! -d "${target}" ]]; then
@@ -141,7 +153,7 @@ install_authority_targets() {
         "${target_dir}/spire-evidence-adapter.service.d/authority-image.conf"
 
     if [[ "${ROOT}" == "/" ]]; then
-        install -m 0755 \
+        install_script_if_needed \
             "${AUTHORITY_DIR}/scripts/remove-agent-join-token-after-healthcheck.sh" \
             "$(path_in_root /opt/spire-demo/authority/scripts/remove-agent-join-token-after-healthcheck.sh)"
     fi

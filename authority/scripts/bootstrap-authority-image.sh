@@ -80,6 +80,19 @@ install_unit() {
     install -o root -g root -m 0644 "${source}" "${target}"
 }
 
+install_script_if_needed() {
+    local source="$1"
+    local target="$2"
+    require_file "${source}"
+
+    if [[ "$(readlink -f "${source}")" == "$(readlink -f "${target}" 2>/dev/null || true)" ]]; then
+        chmod 0755 "${target}"
+        return 0
+    fi
+
+    install -o root -g root -m 0755 "${source}" "${target}"
+}
+
 create_users_and_dirs() {
     log "criando usuários e diretórios base"
 
@@ -155,8 +168,7 @@ install_systemd_units() {
     install_unit "${AUTHORITY_DIR}/systemd/spire-evidence-adapter.service.d/authority-image.conf" \
         /etc/systemd/system/spire-evidence-adapter.service.d/authority-image.conf
 
-    require_file "${AUTHORITY_DIR}/scripts/remove-agent-join-token-after-healthcheck.sh"
-    install -o root -g root -m 0755 \
+    install_script_if_needed \
         "${AUTHORITY_DIR}/scripts/remove-agent-join-token-after-healthcheck.sh" \
         /opt/spire-demo/authority/scripts/remove-agent-join-token-after-healthcheck.sh
 
