@@ -50,7 +50,11 @@ dump_service_debug() {
 }
 
 agent_has_state() {
-    find /var/lib/spire/agent -mindepth 1 -print -quit 2>/dev/null | grep -q .
+    find /var/lib/spire/agent \
+        -mindepth 1 \
+        ! -name "$(basename "${SPIRE_AGENT_JOIN_TOKEN_FILE}")" \
+        -print \
+        -quit 2>/dev/null | grep -q .
 }
 
 write_join_token() {

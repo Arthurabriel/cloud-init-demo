@@ -94,7 +94,7 @@ create_users_and_dirs() {
         usermod -aG docker spire-agent
     fi
 
-    install -d -o root -g spire-server -m 0750 /etc/spire
+    install -d -o root -g root -m 0755 /etc/spire
     install -d -o spire-server -g spire-server -m 0750 /var/lib/spire/server
     install -d -o spire-agent -g spire-agent -m 0750 /var/lib/spire/agent
     install -d -o root -g root -m 0755 /var/lib/spire-demo /opt/spire /run/spire
