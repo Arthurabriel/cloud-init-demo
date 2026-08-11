@@ -110,9 +110,9 @@ def build_manifest(
             "evidence_service": (root / "etc/systemd/system/spire-evidence-adapter.service").exists()
             or (repository_dir / "systemd/spire-evidence-adapter.service").exists(),
             "authority_firstboot_script": (
-                root / "opt/spire-demo/authority/scripts/authority-firstboot.sh"
+                root / "opt/spire-demo/authority/firstboot/authority-firstboot.sh"
             ).exists()
-            or (Path(__file__).resolve().parents[1] / "scripts/authority-firstboot.sh").exists(),
+            or (Path(__file__).resolve().parents[1] / "firstboot/authority-firstboot.sh").exists(),
             "demo_kv_store": (root / "etc/systemd/system/kv-store.service").exists()
             or (repository_dir / "systemd/kv-store.service").exists(),
             "demo_chat_agent": (root / "etc/systemd/system/spire-chat-agent.service").exists()

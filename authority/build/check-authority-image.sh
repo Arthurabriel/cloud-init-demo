@@ -73,7 +73,7 @@ check_core_files() {
     require_file "$(path_in_root /etc/systemd/system/spire-server.service)" "unit spire-server"
     require_file "$(path_in_root /etc/systemd/system/spire-agent.service)" "unit spire-agent"
     require_file "$(path_in_root /etc/systemd/system/spire-evidence-adapter.service)" "unit Evidence Service"
-    require_file "$(path_in_root /opt/spire-demo/authority/scripts/authority-firstboot.sh)" "script first boot linear da Authority"
+    require_file "$(path_in_root /opt/spire-demo/authority/firstboot/authority-firstboot.sh)" "script first boot linear da Authority"
 }
 
 check_targets() {

@@ -105,7 +105,7 @@ install_static_configs() {
 
     require_file "${AUTHORITY_DIR}/config/server.conf"
     require_file "${AUTHORITY_DIR}/config/agent.conf"
-    require_file "${AUTHORITY_DIR}/scripts/run-spire-agent.sh"
+    require_file "${AUTHORITY_DIR}/firstboot/run-spire-agent.sh"
 
     install -o root -g spire-server -m 0640 \
         "${AUTHORITY_DIR}/config/server.conf" \
@@ -116,7 +116,7 @@ install_static_configs() {
         /etc/spire/agent.conf
 
     install -o root -g root -m 0755 \
-        "${AUTHORITY_DIR}/scripts/run-spire-agent.sh" \
+        "${AUTHORITY_DIR}/firstboot/run-spire-agent.sh" \
         /usr/local/sbin/run-spire-agent
 }
 
@@ -135,22 +135,22 @@ install_systemd_units() {
     install_unit "${AUTHORITY_DIR}/systemd/authority-demo.target" \
         /etc/systemd/system/authority-demo.target
     install_script_if_needed \
-        "${AUTHORITY_DIR}/scripts/authority-firstboot.sh" \
-        /opt/spire-demo/authority/scripts/authority-firstboot.sh
+        "${AUTHORITY_DIR}/firstboot/authority-firstboot.sh" \
+        /opt/spire-demo/authority/firstboot/authority-firstboot.sh
 
     systemctl daemon-reload
 }
 
 install_runtime() {
     log "instalando Docker"
-    require_file "${AUTHORITY_DIR}/scripts/install-docker.sh"
-    chmod +x "${AUTHORITY_DIR}/scripts/install-docker.sh"
-    "${AUTHORITY_DIR}/scripts/install-docker.sh"
+    require_file "${AUTHORITY_DIR}/build/install-docker.sh"
+    chmod +x "${AUTHORITY_DIR}/build/install-docker.sh"
+    "${AUTHORITY_DIR}/build/install-docker.sh"
 
     log "instalando SPIRE"
-    require_file "${AUTHORITY_DIR}/scripts/install-spire.sh"
-    chmod +x "${AUTHORITY_DIR}/scripts/install-spire.sh"
-    AUTHORITY_DIR="${AUTHORITY_DIR}" "${AUTHORITY_DIR}/scripts/install-spire.sh"
+    require_file "${AUTHORITY_DIR}/build/install-spire.sh"
+    chmod +x "${AUTHORITY_DIR}/build/install-spire.sh"
+    AUTHORITY_DIR="${AUTHORITY_DIR}" "${AUTHORITY_DIR}/build/install-spire.sh"
 }
 
 install_evidence_service_image() {
@@ -180,7 +180,7 @@ start_core() {
     fi
 
     log "executando firstboot linear da Authority"
-    "${AUTHORITY_DIR}/scripts/authority-firstboot.sh"
+    "${AUTHORITY_DIR}/firstboot/authority-firstboot.sh"
 
     log "validando serviços core"
     systemctl is-active --quiet spire-server

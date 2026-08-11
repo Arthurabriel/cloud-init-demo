@@ -39,6 +39,16 @@ wait_for_command() {
     done
 }
 
+dump_service_debug() {
+    local service="$1"
+
+    echo "[authority-firstboot] debug ${service}: systemctl status" >&2
+    systemctl status "${service}" --no-pager -l >&2 || true
+
+    echo "[authority-firstboot] debug ${service}: journalctl" >&2
+    journalctl -u "${service}" --no-pager -n 120 >&2 || true
+}
+
 agent_has_state() {
     find /var/lib/spire/agent -mindepth 1 -print -quit 2>/dev/null | grep -q .
 }
@@ -89,14 +99,26 @@ start_agent() {
         log "SPIRE Agent já está ativo"
     else
         log "iniciando SPIRE Agent"
-        systemctl start spire-agent
+        if [[ -s "${SPIRE_AGENT_JOIN_TOKEN_FILE}" ]]; then
+            log "join token temporário presente para primeira atestação"
+        else
+            log "join token temporário ausente; Agent deve usar identidade persistida"
+        fi
+
+        if ! systemctl start spire-agent; then
+            dump_service_debug spire-agent
+            exit 1
+        fi
     fi
 
     wait_for_command \
         "healthcheck do SPIRE Agent" \
         30 \
         2 \
-        spire-agent healthcheck -socketPath "${SPIRE_AGENT_SOCKET}"
+        spire-agent healthcheck -socketPath "${SPIRE_AGENT_SOCKET}" || {
+            dump_service_debug spire-agent
+            exit 1
+        }
 
     rm -f "${SPIRE_AGENT_JOIN_TOKEN_FILE}"
     log "join token removido após healthcheck do SPIRE Agent"
@@ -109,7 +131,11 @@ start_evidence_service() {
         "container do Evidence Service" \
         30 \
         2 \
-        docker inspect -f '{{.State.Running}}' "${SPIRE_EVIDENCE_ADAPTER_CONTAINER_NAME}"
+        docker inspect -f '{{.State.Running}}' "${SPIRE_EVIDENCE_ADAPTER_CONTAINER_NAME}" || {
+            dump_service_debug spire-evidence-adapter
+            docker logs "${SPIRE_EVIDENCE_ADAPTER_CONTAINER_NAME}" >&2 || true
+            exit 1
+        }
 }
 
 main() {

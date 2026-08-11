@@ -142,8 +142,8 @@ install_authority_targets() {
 
     if [[ "${ROOT}" == "/" ]]; then
         install_script_if_needed \
-            "${AUTHORITY_DIR}/scripts/authority-firstboot.sh" \
-            "$(path_in_root /opt/spire-demo/authority/scripts/authority-firstboot.sh)"
+            "${AUTHORITY_DIR}/firstboot/authority-firstboot.sh" \
+            "$(path_in_root /opt/spire-demo/authority/firstboot/authority-firstboot.sh)"
     fi
 
     if [[ "${ROOT}" == "/" ]] && command -v systemctl >/dev/null 2>&1; then
@@ -272,7 +272,7 @@ main() {
     sanitize_spire_server_final
     sanitize_os_identity
     sanitize_logs_and_cloud_init
-    log "preparação concluída; execute check-authority-image.sh antes do snapshot"
+    log "preparação concluída; execute build/check-authority-image.sh antes do snapshot"
 }
 
 main "$@"

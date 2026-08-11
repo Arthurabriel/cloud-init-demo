@@ -17,7 +17,7 @@ authority/cloud-init/authority-build.yaml
 Esse cloud-init clona o repositório em `/opt/spire-demo` e executa:
 
 ```bash
-/opt/spire-demo/authority/scripts/bootstrap-authority-image.sh
+/opt/spire-demo/authority/build/bootstrap-authority-image.sh
 ```
 
 Esse bootstrap instala Docker, instala SPIRE, copia `server.conf` e `agent.conf`, instala as units do core, baixa a imagem do Evidence Service e chama o first boot linear da Authority.
@@ -26,7 +26,8 @@ O fluxo da Authority é autocontido neste diretório:
 
 - `authority/config`;
 - `authority/systemd`;
-- `authority/scripts`.
+- `authority/build`;
+- `authority/firstboot`.
 
 O diretório `cloud-init-spire-instance/` permanece separado como demo/fluxo antigo.
 
@@ -40,8 +41,8 @@ Depois que a VM base estiver validada, finalize antes do snapshot:
 
 ```bash
 cd /opt/spire-demo/authority
-sudo ./scripts/prepare-authority-image.sh --finalize
-sudo ./scripts/check-authority-image.sh
+sudo ./build/prepare-authority-image.sh --finalize
+sudo ./build/check-authority-image.sh
 ```
 
 ## Subir a aplicação em uma VM da imagem
@@ -55,7 +56,7 @@ authority/cloud-init/authority-firstboot.yaml
 Ele não reinstala SPIRE nem Docker. Ele chama:
 
 ```bash
-sudo /opt/spire-demo/authority/scripts/authority-firstboot.sh
+sudo /opt/spire-demo/authority/firstboot/authority-firstboot.sh
 ```
 
 O ordering esperado é:
@@ -81,7 +82,7 @@ sudo systemctl status spire-evidence-adapter --no-pager -l
 
 ```bash
 cd /opt/spire-demo/authority
-./scripts/generate-authority-manifest.py --output authority-manifest.json
+./build/generate-authority-manifest.py --output authority-manifest.json
 ```
 
 ## Preparar VM para snapshot
@@ -90,8 +91,8 @@ Execute somente na VM que será congelada:
 
 ```bash
 cd /opt/spire-demo/authority
-sudo ./scripts/prepare-authority-image.sh --finalize
-sudo ./scripts/check-authority-image.sh
+sudo ./build/prepare-authority-image.sh --finalize
+sudo ./build/check-authority-image.sh
 ```
 
 `--finalize` remove o estado criptográfico/runtime do SPIRE Server e o estado do SPIRE Agent. Depois disso, crie o snapshot no OpenStack como `pgid-authority-v1`.
@@ -100,7 +101,7 @@ sudo ./scripts/check-authority-image.sh
 
 ```bash
 cd /opt/spire-demo/authority
-./scripts/read-openstack-instance-uuid.py
+./firstboot/read-openstack-instance-uuid.py
 ```
 
 Esse comando retorna apenas `instance_uuid` e `evidence_source`; ele não expõe o metadata completo do Config Drive.
