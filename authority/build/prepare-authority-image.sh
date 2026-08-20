@@ -10,6 +10,10 @@ CORE_SERVICES=(
     spire-chat-agent
     kv-store
     spire-evidence-adapter
+    spire-agent-authority
+    spire-server-authority
+    spire-agent-upstream
+    spire-server-trusted-root
     spire-agent
     spire-server
 )
@@ -20,6 +24,35 @@ SERVER_RUNTIME_FILES=(
     /var/lib/spire/server/datastore.sqlite3-wal
     /var/lib/spire/server/datastore.sqlite3-journal
     /var/lib/spire/server/keys.json
+    /var/lib/spire/trusted-root/server/datastore.sqlite3
+    /var/lib/spire/trusted-root/server/datastore.sqlite3-shm
+    /var/lib/spire/trusted-root/server/datastore.sqlite3-wal
+    /var/lib/spire/trusted-root/server/datastore.sqlite3-journal
+    /var/lib/spire/trusted-root/server/keys.json
+    /var/lib/spire/authority-server/datastore.sqlite3
+    /var/lib/spire/authority-server/datastore.sqlite3-shm
+    /var/lib/spire/authority-server/datastore.sqlite3-wal
+    /var/lib/spire/authority-server/datastore.sqlite3-journal
+    /var/lib/spire/authority-server/keys.json
+)
+
+SERVER_RUNTIME_DIRS=(
+    /var/lib/spire/server
+    /var/lib/spire/trusted-root/server
+    /var/lib/spire/authority-server
+)
+
+AGENT_RUNTIME_DIRS=(
+    /var/lib/spire/agent
+    /var/lib/spire/upstream-agent
+    /var/lib/spire/authority-agent
+)
+
+JOIN_TOKEN_FILES=(
+    /var/lib/spire/agent/join-token
+    /var/lib/spire/upstream-agent/join-token
+    /var/lib/spire/authority-agent/join-token
+    /etc/pgid-authority/upstream-agent.join-token
 )
 
 usage() {
@@ -138,12 +171,41 @@ install_authority_targets() {
     install -m 0644 \
         "${source_dir}/authority-core.target" \
         "${source_dir}/authority-demo.target" \
+        "${source_dir}/trusted-root.target" \
+        "${source_dir}/spire-server-trusted-root.service" \
+        "${source_dir}/spire-agent-upstream.service" \
+        "${source_dir}/spire-server-authority.service" \
+        "${source_dir}/spire-agent-authority.service" \
         "${target_dir}/"
 
     if [[ "${ROOT}" == "/" ]]; then
         install_script_if_needed \
             "${AUTHORITY_DIR}/firstboot/authority-firstboot.sh" \
             "$(path_in_root /opt/spire-demo/authority/firstboot/authority-firstboot.sh)"
+        install_script_if_needed \
+            "${AUTHORITY_DIR}/firstboot/trusted-root-firstboot.sh" \
+            "$(path_in_root /opt/spire-demo/authority/firstboot/trusted-root-firstboot.sh)"
+        install_script_if_needed \
+            "${AUTHORITY_DIR}/firstboot/nested-authority-firstboot.sh" \
+            "$(path_in_root /opt/spire-demo/authority/firstboot/nested-authority-firstboot.sh)"
+        install_script_if_needed \
+            "${AUTHORITY_DIR}/firstboot/nested-common.sh" \
+            "$(path_in_root /opt/spire-demo/authority/firstboot/nested-common.sh)"
+        install_script_if_needed \
+            "${AUTHORITY_DIR}/firstboot/create-upstream-agent-join-token.sh" \
+            "$(path_in_root /opt/spire-demo/authority/firstboot/create-upstream-agent-join-token.sh)"
+        install_script_if_needed \
+            "${AUTHORITY_DIR}/firstboot/register-downstream-authority.sh" \
+            "$(path_in_root /opt/spire-demo/authority/firstboot/register-downstream-authority.sh)"
+        install_script_if_needed \
+            "${AUTHORITY_DIR}/firstboot/check-authority-nested-state.sh" \
+            "$(path_in_root /opt/spire-demo/authority/firstboot/check-authority-nested-state.sh)"
+        install_script_if_needed \
+            "${AUTHORITY_DIR}/firstboot/inspect-nested-authority.sh" \
+            "$(path_in_root /opt/spire-demo/authority/firstboot/inspect-nested-authority.sh)"
+        install_script_if_needed \
+            "${AUTHORITY_DIR}/firstboot/validate-authority-certificate-chain.sh" \
+            "$(path_in_root /opt/spire-demo/authority/firstboot/validate-authority-certificate-chain.sh)"
     fi
 
     if [[ "${ROOT}" == "/" ]] && command -v systemctl >/dev/null 2>&1; then
@@ -155,17 +217,25 @@ install_authority_targets() {
 }
 
 sanitize_spire_agent() {
-    local agent_dir
-    agent_dir="$(path_in_root /var/lib/spire/agent)"
+    local agent_dir token_file
 
-    log "removendo join token e identidade/cache atuais do SPIRE Agent"
-    remove_path "$(path_in_root /var/lib/spire/agent/join-token)"
+    log "removendo join tokens e identidades/caches atuais dos SPIRE Agents"
+    for token_file in "${JOIN_TOKEN_FILES[@]}"; do
+        remove_path "$(path_in_root "${token_file}")"
+    done
     remove_path "$(path_in_root /var/lib/spire/agent/agent-spiffe-id)"
-    empty_directory "${agent_dir}"
-    install -d -m 0750 "${agent_dir}"
-    if [[ "${ROOT}" == "/" ]] && id spire-agent >/dev/null 2>&1; then
-        chown spire-agent:spire-agent "${agent_dir}"
-    fi
+    remove_path "$(path_in_root /run/spire/agent)"
+    remove_path "$(path_in_root /run/spire/upstream-agent)"
+    remove_path "$(path_in_root /run/spire/authority-agent)"
+
+    for agent_dir in "${AGENT_RUNTIME_DIRS[@]}"; do
+        agent_dir="$(path_in_root "${agent_dir}")"
+        empty_directory "${agent_dir}"
+        install -d -m 0750 "${agent_dir}"
+        if [[ "${ROOT}" == "/" ]] && id spire-agent >/dev/null 2>&1; then
+            chown spire-agent:spire-agent "${agent_dir}"
+        fi
+    done
 }
 
 sanitize_demo_state() {
@@ -237,29 +307,34 @@ sanitize_logs_and_cloud_init() {
 
 sanitize_spire_server_final() {
     local server_dir
-    server_dir="$(path_in_root /var/lib/spire/server)"
 
     if [[ "${FINALIZE}" != "true" ]]; then
-        log "preservando estado do SPIRE Server em ${server_dir}; use --finalize antes do snapshot reutilizável"
+        log "preservando estado dos SPIRE Servers; use --finalize antes do snapshot reutilizável"
         return 0
     fi
 
-    log "finalize ativo: removendo estado criptográfico/runtime exato do SPIRE Server"
+    log "finalize ativo: removendo estado criptográfico/runtime exato dos SPIRE Servers"
     for runtime_file in "${SERVER_RUNTIME_FILES[@]}"; do
         remove_path "$(path_in_root "${runtime_file}")"
     done
+    remove_path "$(path_in_root /run/spire/server)"
+    remove_path "$(path_in_root /run/spire/trusted-root)"
+    remove_path "$(path_in_root /run/spire/authority-server)"
 
-    install -d -m 0750 "${server_dir}"
-    if [[ "${ROOT}" == "/" ]] && id spire-server >/dev/null 2>&1; then
-        chown spire-server:spire-server "${server_dir}"
-    fi
+    for server_dir in "${SERVER_RUNTIME_DIRS[@]}"; do
+        server_dir="$(path_in_root "${server_dir}")"
+        install -d -m 0750 "${server_dir}"
+        if [[ "${ROOT}" == "/" ]] && id spire-server >/dev/null 2>&1; then
+            chown spire-server:spire-server "${server_dir}"
+        fi
 
-    if find "${server_dir}" -mindepth 1 -print -quit 2>/dev/null | grep -q .; then
-        echo "[authority-prepare] estado inesperado permaneceu em ${server_dir}" >&2
-        echo "[authority-prepare] revise manualmente antes do snapshot; remoção genérica não foi executada." >&2
-        find "${server_dir}" -mindepth 1 -maxdepth 2 -print >&2
-        exit 1
-    fi
+        if find "${server_dir}" -mindepth 1 -print -quit 2>/dev/null | grep -q .; then
+            echo "[authority-prepare] estado inesperado permaneceu em ${server_dir}" >&2
+            echo "[authority-prepare] revise manualmente antes do snapshot; remoção genérica não foi executada." >&2
+            find "${server_dir}" -mindepth 1 -maxdepth 2 -print >&2
+            exit 1
+        fi
+    done
 }
 
 main() {

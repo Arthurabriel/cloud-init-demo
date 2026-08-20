@@ -70,10 +70,27 @@ check_core_files() {
     require_file "$(path_in_root /opt/spire/bin/spire-agent)" "binário spire-agent"
     require_file "$(path_in_root /etc/spire/server.conf)" "configuração SPIRE Server"
     require_file "$(path_in_root /etc/spire/agent.conf)" "configuração SPIRE Agent"
+    require_file "$(path_in_root /opt/spire-demo/authority/config/nested-defaults.env)" "defaults Nested SPIRE"
+    require_file "$(path_in_root /opt/spire-demo/authority/config/trusted-root-server.conf.template)" "template Trusted Root Server"
+    require_file "$(path_in_root /opt/spire-demo/authority/config/upstream-agent.conf.template)" "template Upstream Agent"
+    require_file "$(path_in_root /opt/spire-demo/authority/config/authority-server.conf.template)" "template Authority Server"
+    require_file "$(path_in_root /opt/spire-demo/authority/config/authority-agent.conf.template)" "template Authority Agent"
     require_file "$(path_in_root /etc/systemd/system/spire-server.service)" "unit spire-server"
     require_file "$(path_in_root /etc/systemd/system/spire-agent.service)" "unit spire-agent"
+    require_file "$(path_in_root /etc/systemd/system/spire-server-trusted-root.service)" "unit Trusted Root Server"
+    require_file "$(path_in_root /etc/systemd/system/spire-agent-upstream.service)" "unit Upstream Agent"
+    require_file "$(path_in_root /etc/systemd/system/spire-server-authority.service)" "unit Authority Server"
+    require_file "$(path_in_root /etc/systemd/system/spire-agent-authority.service)" "unit Authority Agent"
     require_file "$(path_in_root /etc/systemd/system/spire-evidence-adapter.service)" "unit Evidence Service"
     require_file "$(path_in_root /opt/spire-demo/authority/firstboot/authority-firstboot.sh)" "script first boot linear da Authority"
+    require_file "$(path_in_root /opt/spire-demo/authority/firstboot/trusted-root-firstboot.sh)" "script first boot Trusted Root"
+    require_file "$(path_in_root /opt/spire-demo/authority/firstboot/nested-authority-firstboot.sh)" "script first boot Nested Authority"
+    require_file "$(path_in_root /opt/spire-demo/authority/firstboot/create-upstream-agent-join-token.sh)" "script join token Upstream Agent"
+    require_file "$(path_in_root /opt/spire-demo/authority/firstboot/register-downstream-authority.sh)" "script registro downstream"
+    require_file "$(path_in_root /opt/spire-demo/authority/firstboot/check-authority-nested-state.sh)" "script readiness Nested Authority"
+    require_file "$(path_in_root /opt/spire-demo/authority/firstboot/inspect-nested-authority.sh)" "script inspeção Nested Authority"
+    require_file "$(path_in_root /opt/spire-demo/authority/firstboot/validate-authority-certificate-chain.sh)" "script validação cadeia X.509"
+    require_file "$(path_in_root /opt/spire-demo/authority/build/render-openstack-user-data.py)" "renderizador cloud-init OpenStack"
 }
 
 check_targets() {
@@ -87,12 +104,22 @@ check_targets() {
     else
         log_warn "authority-demo.target ainda não instalado; rode prepare-authority-image.sh"
     fi
+    if [[ -f "$(path_in_root /etc/systemd/system/trusted-root.target)" ]]; then
+        log_ok "trusted-root.target instalado"
+    else
+        log_warn "trusted-root.target ainda não instalado; rode prepare-authority-image.sh"
+    fi
 }
 
 check_agent_state() {
     require_absent "$(path_in_root /var/lib/spire/agent/join-token)" "join token persistido"
+    require_absent "$(path_in_root /var/lib/spire/upstream-agent/join-token)" "join token persistido do Upstream Agent"
+    require_absent "$(path_in_root /var/lib/spire/authority-agent/join-token)" "join token persistido do Authority Agent"
+    require_absent "$(path_in_root /etc/pgid-authority/upstream-agent.join-token)" "join token OpenStack persistido do Upstream Agent"
     require_absent "$(path_in_root /var/lib/spire/agent/agent-spiffe-id)" "SPIFFE ID persistido do Agent"
     require_empty_or_missing_dir "$(path_in_root /var/lib/spire/agent)" "estado/cache do SPIRE Agent"
+    require_empty_or_missing_dir "$(path_in_root /var/lib/spire/upstream-agent)" "estado/cache do Upstream Agent"
+    require_empty_or_missing_dir "$(path_in_root /var/lib/spire/authority-agent)" "estado/cache do Authority Agent"
 }
 
 check_server_state() {
@@ -102,6 +129,18 @@ check_server_state() {
     require_absent "$(path_in_root /var/lib/spire/server/datastore.sqlite3-journal)" "SQLite journal antigo do SPIRE Server"
     require_absent "$(path_in_root /var/lib/spire/server/keys.json)" "KeyManager disk antigo do SPIRE Server"
     require_empty_or_missing_dir "$(path_in_root /var/lib/spire/server)" "estado/runtime do SPIRE Server"
+    require_absent "$(path_in_root /var/lib/spire/trusted-root/server/datastore.sqlite3)" "datastore antigo do Trusted Root"
+    require_absent "$(path_in_root /var/lib/spire/trusted-root/server/datastore.sqlite3-shm)" "SQLite shm antigo do Trusted Root"
+    require_absent "$(path_in_root /var/lib/spire/trusted-root/server/datastore.sqlite3-wal)" "SQLite wal antigo do Trusted Root"
+    require_absent "$(path_in_root /var/lib/spire/trusted-root/server/datastore.sqlite3-journal)" "SQLite journal antigo do Trusted Root"
+    require_absent "$(path_in_root /var/lib/spire/trusted-root/server/keys.json)" "KeyManager disk antigo do Trusted Root"
+    require_empty_or_missing_dir "$(path_in_root /var/lib/spire/trusted-root/server)" "estado/runtime do Trusted Root"
+    require_absent "$(path_in_root /var/lib/spire/authority-server/datastore.sqlite3)" "datastore antigo do Authority Server"
+    require_absent "$(path_in_root /var/lib/spire/authority-server/datastore.sqlite3-shm)" "SQLite shm antigo do Authority Server"
+    require_absent "$(path_in_root /var/lib/spire/authority-server/datastore.sqlite3-wal)" "SQLite wal antigo do Authority Server"
+    require_absent "$(path_in_root /var/lib/spire/authority-server/datastore.sqlite3-journal)" "SQLite journal antigo do Authority Server"
+    require_absent "$(path_in_root /var/lib/spire/authority-server/keys.json)" "KeyManager disk antigo do Authority Server"
+    require_empty_or_missing_dir "$(path_in_root /var/lib/spire/authority-server)" "estado/runtime do Authority Server"
 }
 
 check_os_state() {
@@ -143,9 +182,14 @@ check_known_secrets() {
 
     if grep -R -n -E 'admin_pass|random_seed|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|Token:' \
         "$(path_in_root /etc/spire)" \
+        "$(path_in_root /etc/pgid-authority)" \
         "$(path_in_root /etc/spire-demo)" \
         "$(path_in_root /var/lib/spire/agent)" \
+        "$(path_in_root /var/lib/spire/upstream-agent)" \
+        "$(path_in_root /var/lib/spire/authority-agent)" \
         "$(path_in_root /var/lib/spire/server)" \
+        "$(path_in_root /var/lib/spire/trusted-root/server)" \
+        "$(path_in_root /var/lib/spire/authority-server)" \
         >/tmp/authority-secret-scan.txt 2>/dev/null; then
         log_fail "possíveis segredos encontrados; veja /tmp/authority-secret-scan.txt"
     else

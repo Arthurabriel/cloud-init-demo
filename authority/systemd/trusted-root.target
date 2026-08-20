@@ -1,0 +1,9 @@
+[Unit]
+Description=PGID Trusted Root SPIRE services
+Documentation=file:/opt/spire-demo/authority/docs/nested-openstack.md
+Requires=spire-server-trusted-root.service
+After=network-online.target spire-server-trusted-root.service
+Wants=network-online.target
+
+[Install]
+WantedBy=multi-user.target

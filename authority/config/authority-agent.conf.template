@@ -1,0 +1,28 @@
+agent {
+    trust_domain = "@TRUST_DOMAIN@"
+    insecure_bootstrap = true
+
+    data_dir = "@AUTHORITY_AGENT_DATA_DIR@"
+    log_level = "DEBUG"
+
+    server_address = "127.0.0.1"
+    server_port = "@AUTHORITY_SPIRE_PORT@"
+
+    socket_path = "@AUTHORITY_AGENT_SOCKET@"
+}
+
+plugins {
+    NodeAttestor "join_token" {
+        plugin_data {}
+    }
+
+    KeyManager "disk" {
+        plugin_data {
+            directory = "@AUTHORITY_AGENT_DATA_DIR@"
+        }
+    }
+
+    WorkloadAttestor "unix" {
+        plugin_data {}
+    }
+}

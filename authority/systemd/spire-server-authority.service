@@ -1,0 +1,32 @@
+[Unit]
+Description=Nested Authority SPIRE Server
+Documentation=https://spiffe.io/docs/latest/architecture/nested/readme/
+After=network-online.target spire-agent-upstream.service
+Requires=spire-agent-upstream.service
+Wants=network-online.target
+ConditionPathExists=/etc/spire/authority-server/server.conf
+StartLimitIntervalSec=15min
+StartLimitBurst=6
+
+[Service]
+Type=simple
+User=spire-server
+Group=spire-server
+
+ExecStartPre=/usr/local/sbin/wait-for-spire-socket upstream-agent-workload-api /run/spire/upstream-agent/public/api.sock 60 2
+ExecStart=/opt/spire/bin/spire-server run \
+    -config /etc/spire/authority-server/server.conf
+
+Restart=on-failure
+RestartSec=30
+
+RuntimeDirectory=spire/authority-server/private
+RuntimeDirectoryMode=0750
+
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+
+[Install]
+WantedBy=authority-core.target

@@ -1,9 +1,9 @@
 [Unit]
-Description=PGID Authority core services
-Documentation=file:/opt/spire-demo/authority/docs/authority-image.md
-Requires=spire-server.service spire-agent.service spire-evidence-adapter.service
-After=network-online.target docker.service spire-server.service spire-agent.service spire-evidence-adapter.service
-Wants=network-online.target docker.service
+Description=PGID Nested Authority core services
+Documentation=file:/opt/spire-demo/authority/docs/nested-openstack.md
+Requires=spire-agent-upstream.service spire-server-authority.service spire-agent-authority.service
+After=network-online.target spire-agent-upstream.service spire-server-authority.service spire-agent-authority.service
+Wants=network-online.target
 
 [Install]
 WantedBy=multi-user.target

@@ -107,6 +107,22 @@ def build_manifest(
             or (repository_dir / "systemd/spire-server.service").exists(),
             "spire_agent": (root / "etc/systemd/system/spire-agent.service").exists()
             or (repository_dir / "systemd/spire-agent.service").exists(),
+            "trusted_root_server": (
+                root / "etc/systemd/system/spire-server-trusted-root.service"
+            ).exists()
+            or (repository_dir / "systemd/spire-server-trusted-root.service").exists(),
+            "upstream_agent": (
+                root / "etc/systemd/system/spire-agent-upstream.service"
+            ).exists()
+            or (repository_dir / "systemd/spire-agent-upstream.service").exists(),
+            "authority_server": (
+                root / "etc/systemd/system/spire-server-authority.service"
+            ).exists()
+            or (repository_dir / "systemd/spire-server-authority.service").exists(),
+            "authority_agent": (
+                root / "etc/systemd/system/spire-agent-authority.service"
+            ).exists()
+            or (repository_dir / "systemd/spire-agent-authority.service").exists(),
             "evidence_service": (root / "etc/systemd/system/spire-evidence-adapter.service").exists()
             or (repository_dir / "systemd/spire-evidence-adapter.service").exists(),
             "authority_firstboot_script": (

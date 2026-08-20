@@ -1,0 +1,41 @@
+server {
+    bind_address = "@AUTHORITY_SPIRE_BIND_ADDRESS@"
+    bind_port = "@AUTHORITY_SPIRE_PORT@"
+
+    socket_path = "@AUTHORITY_SERVER_SOCKET@"
+
+    trust_domain = "@TRUST_DOMAIN@"
+    data_dir = "@AUTHORITY_SERVER_DATA_DIR@"
+    log_level = "DEBUG"
+
+    ca_ttl = "24h"
+    default_x509_svid_ttl = "1h"
+    default_jwt_svid_ttl = "5m"
+}
+
+plugins {
+    DataStore "sql" {
+        plugin_data {
+            database_type = "sqlite3"
+            connection_string = "@AUTHORITY_SERVER_DATA_DIR@/datastore.sqlite3"
+        }
+    }
+
+    NodeAttestor "join_token" {
+        plugin_data {}
+    }
+
+    KeyManager "disk" {
+        plugin_data {
+            keys_path = "@AUTHORITY_SERVER_DATA_DIR@/keys.json"
+        }
+    }
+
+    UpstreamAuthority "spire" {
+        plugin_data = {
+            server_address      = "@TRUSTED_SPIRE_SERVER@"
+            server_port         = "@TRUSTED_SPIRE_PORT@"
+            workload_api_socket = "@UPSTREAM_AGENT_SOCKET@"
+        }
+    }
+}

@@ -1,0 +1,28 @@
+agent {
+    trust_domain = "@TRUST_DOMAIN@"
+    insecure_bootstrap = true
+
+    data_dir = "@UPSTREAM_AGENT_DATA_DIR@"
+    log_level = "DEBUG"
+
+    server_address = "@TRUSTED_SPIRE_SERVER@"
+    server_port = "@TRUSTED_SPIRE_PORT@"
+
+    socket_path = "@UPSTREAM_AGENT_SOCKET@"
+}
+
+plugins {
+    NodeAttestor "join_token" {
+        plugin_data {}
+    }
+
+    KeyManager "disk" {
+        plugin_data {
+            directory = "@UPSTREAM_AGENT_DATA_DIR@"
+        }
+    }
+
+    WorkloadAttestor "unix" {
+        plugin_data {}
+    }
+}

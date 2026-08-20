@@ -1,0 +1,30 @@
+[Unit]
+Description=Authority SPIRE Agent for local workloads
+Documentation=https://spiffe.io/docs/latest/architecture/nested/readme/
+After=network-online.target spire-server-authority.service
+Requires=spire-server-authority.service
+Wants=network-online.target
+ConditionPathExists=/etc/spire/authority-agent/agent.conf
+StartLimitIntervalSec=10min
+StartLimitBurst=6
+
+[Service]
+Type=simple
+User=spire-agent
+Group=spire-agent
+
+ExecStart=/usr/local/sbin/run-spire-agent-authority
+
+Restart=on-failure
+RestartSec=10
+
+RuntimeDirectory=spire/authority-agent/public
+RuntimeDirectoryMode=0755
+
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+
+[Install]
+WantedBy=authority-core.target

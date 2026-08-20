@@ -171,7 +171,11 @@ main() {
     start_agent
     start_evidence_service
 
-    systemctl enable authority-core.target >/dev/null 2>&1 || true
+    systemctl enable \
+        spire-server.service \
+        spire-agent.service \
+        spire-evidence-adapter.service \
+        >/dev/null 2>&1 || true
     log "Authority core iniciado"
 }
 
