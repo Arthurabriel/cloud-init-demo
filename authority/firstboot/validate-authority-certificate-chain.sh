@@ -43,9 +43,15 @@ for agent in payload.get("agents", []):
 
 ensure_validation_entry() {
     local parent_id="$1"
-    local entries
-    entries="$(server entry show 2>/dev/null || true)"
-    if grep -Fq "SPIFFE ID        : ${WORKLOAD_SPIFFE_ID}" <<<"${entries}"; then
+    local exact_entry
+
+    exact_entry="$(
+        server entry show \
+            -parentID "${parent_id}" \
+            -spiffeID "${WORKLOAD_SPIFFE_ID}" \
+            -selector "${WORKLOAD_SELECTOR}" 2>/dev/null || true
+    )"
+    if grep -Fq "Entry ID" <<<"${exact_entry}"; then
         return 0
     fi
 
@@ -53,6 +59,32 @@ ensure_validation_entry() {
         -parentID "${parent_id}" \
         -spiffeID "${WORKLOAD_SPIFFE_ID}" \
         -selector "${WORKLOAD_SELECTOR}" >/dev/null
+}
+
+fetch_validation_svid() {
+    local attempt
+
+    for attempt in $(seq 1 15); do
+        if /opt/spire/bin/spire-agent api fetch x509 \
+            -socketPath "${AUTHORITY_AGENT_SOCKET}" \
+            -write "${TMP_DIR}" >/dev/null; then
+            return 0
+        fi
+        sleep 2
+    done
+
+    echo "[authority-chain] could not fetch validation SVID from ${AUTHORITY_AGENT_SOCKET}" >&2
+    echo "[authority-chain] expected SPIFFE ID: ${WORKLOAD_SPIFFE_ID}" >&2
+    echo "[authority-chain] expected parent ID: ${PARENT_ID}" >&2
+    echo "[authority-chain] expected selector: ${WORKLOAD_SELECTOR}" >&2
+    echo "[authority-chain] exact matching entries:" >&2
+    server entry show \
+        -parentID "${PARENT_ID}" \
+        -spiffeID "${WORKLOAD_SPIFFE_ID}" \
+        -selector "${WORKLOAD_SELECTOR}" >&2 || true
+    echo "[authority-chain] recent authority agent logs:" >&2
+    journalctl -u spire-agent-authority.service --no-pager -n 80 >&2 || true
+    return 1
 }
 
 split_chain() {
@@ -63,18 +95,15 @@ split_chain() {
 }
 
 main() {
-    local parent_id
-    parent_id="$(authority_agent_id)"
-    if [[ -z "${parent_id}" ]]; then
+    PARENT_ID="$(authority_agent_id)"
+    if [[ -z "${PARENT_ID}" ]]; then
         echo "[authority-chain] no attested authority agent found" >&2
         exit 1
     fi
 
-    ensure_validation_entry "${parent_id}"
+    ensure_validation_entry "${PARENT_ID}"
 
-    /opt/spire/bin/spire-agent api fetch x509 \
-        -socketPath "${AUTHORITY_AGENT_SOCKET}" \
-        -write "${TMP_DIR}" >/dev/null
+    fetch_validation_svid
 
     if [[ ! -f "${TMP_DIR}/svid.0.pem" || ! -f "${TMP_DIR}/bundle.0.pem" ]]; then
         echo "[authority-chain] expected SVID and bundle files were not written to ${TMP_DIR}" >&2

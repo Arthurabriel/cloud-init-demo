@@ -101,7 +101,7 @@ main() {
     if ! systemctl start spire-server-authority.service; then
         service_debug spire-server-authority.service
         echo "[nested-spire] Authority Server could not start." >&2
-        echo "[nested-spire] If the downstream registration entry is not created yet, run register-downstream-authority.sh on the Trusted Root, then restart spire-server-authority.service." >&2
+        echo "[nested-spire] If the downstream registration entry is not created yet, run register-downstream-authority.sh on the Trusted Root, then rerun nested-authority-firstboot.sh on this Authority." >&2
         exit 1
     fi
 
@@ -109,12 +109,14 @@ main() {
         service_debug spire-server-authority.service
         echo "[nested-spire] Authority Server is not healthy." >&2
         echo "[nested-spire] Confirm that the Trusted Root has a -downstream entry for ${AUTHORITY_SERVER_SPIFFE_ID} with selector unix:user:spire-server." >&2
+        echo "[nested-spire] After creating the downstream entry, rerun nested-authority-firstboot.sh so the local authority-agent join token is generated." >&2
         exit 1
     fi
 
     write_authority_agent_join_token_if_needed
 
     log_nested "starting authority agent"
+    systemctl reset-failed spire-agent-authority.service >/dev/null 2>&1 || true
     if ! systemctl start spire-agent-authority.service; then
         service_debug spire-agent-authority.service
         exit 1

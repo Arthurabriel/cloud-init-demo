@@ -1,6 +1,6 @@
 [Unit]
 Description=PGID Nested Authority core services
-Documentation=file:/opt/spire-demo/authority/docs/nested-openstack.md
+Documentation=file:/opt/spire-demo/authority/README.md
 Requires=spire-agent-upstream.service spire-server-authority.service spire-agent-authority.service
 After=network-online.target spire-agent-upstream.service spire-server-authority.service spire-agent-authority.service
 Wants=network-online.target
