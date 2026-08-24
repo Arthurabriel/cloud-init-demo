@@ -1,11 +1,14 @@
 [Unit]
-Description=SPIRE Evidence Adapter
-After=docker.service spire-server.service
-Requires=docker.service spire-server.service
+Description=SPIRE Evidence Adapter for Nested Authority
+ConditionPathExists=/etc/pgid-authority/trusted-root-bundle.pem
+After=docker.service spire-server-authority.service spire-agent-authority.service
+Requires=docker.service spire-server-authority.service
+Wants=spire-agent-authority.service
 
 [Service]
 Type=simple
 EnvironmentFile=/opt/spire-demo/authority/config/runtime.env
+EnvironmentFile=-/etc/pgid-authority/nested.env
 ExecStartPre=-/usr/bin/docker rm -f ${SPIRE_EVIDENCE_ADAPTER_CONTAINER_NAME}
 ExecStart=/usr/bin/docker run \
     --name ${SPIRE_EVIDENCE_ADAPTER_CONTAINER_NAME} \
@@ -14,18 +17,26 @@ ExecStart=/usr/bin/docker run \
     --env MCP_SERVER_PORT=8000 \
     --env MCP_SERVER_TRANSPORT=streamable-http \
     --env SPIRE_SERVER_BINARY=${SPIRE_SERVER_BINARY} \
-    --env SPIRE_SERVER_SOCKET=${SPIRE_SERVER_SOCKET} \
-    --env SPIRE_SERVER_CONFIG_FILE=/etc/spire/server.conf \
-    --env SPIRE_AGENT_CONFIG_FILE=/etc/spire/agent.conf \
+    --env SPIRE_AGENT_BINARY=/opt/spire/bin/spire-agent \
+    --env OPENSSL_BINARY=openssl \
+    --env SPIRE_SERVER_SOCKET=/run/spire/authority-server/private/api.sock \
+    --env SPIRE_AGENT_SOCKET=/run/spire/authority-agent/public/api.sock \
+    --env SPIRE_SERVER_CONFIG_FILE=/etc/spire/authority-server/server.conf \
+    --env SPIRE_AGENT_CONFIG_FILE=/etc/spire/authority-agent/agent.conf \
+    --env SPIRE_EXPECTED_TRUST_DOMAIN=${TRUST_DOMAIN} \
+    --env AUTHORITY_SERVER_SPIFFE_ID=spiffe://${TRUST_DOMAIN}/authority/server \
+    --env TRUSTED_ROOT_BUNDLE_FILE=/etc/pgid-authority/trusted-root-bundle.pem \
     --env SPIRE_COMMAND_TIMEOUT_SECONDS=5 \
     --env ADAPTER_LOG_LEVEL=INFO \
     --env ADAPTER_SCHEMA_VERSION=1.0 \
-    --volume ${SPIRE_SERVER_SOCKET_DIR}:${SPIRE_SERVER_SOCKET_DIR} \
+    --volume /run/spire/authority-server/private:/run/spire/authority-server/private \
+    --volume /run/spire/authority-agent/public:/run/spire/authority-agent/public \
     --volume /etc/spire:/etc/spire:ro \
+    --volume /etc/pgid-authority/trusted-root-bundle.pem:/etc/pgid-authority/trusted-root-bundle.pem:ro \
     ${SPIRE_EVIDENCE_ADAPTER_IMAGE}
 ExecStop=/usr/bin/docker stop ${SPIRE_EVIDENCE_ADAPTER_CONTAINER_NAME}
 Restart=always
 RestartSec=5
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=authority-core.target

@@ -68,6 +68,25 @@ write_authority_agent_join_token_if_needed() {
 
     install -o spire-agent -g spire-agent -m 0600 /dev/null "${AUTHORITY_AGENT_JOIN_TOKEN_FILE}"
     printf '%s\n' "${join_token}" > "${AUTHORITY_AGENT_JOIN_TOKEN_FILE}"
+
+    # Remember which node ID this token will produce. Recorded only once the agent is
+    # healthy (see record_authority_agent_node_id), so the value on disk is a spent,
+    # single-use token embedded in an agent ID that already appears in agent list, entries
+    # and logs -- not a live credential.
+    AUTHORITY_AGENT_NODE_ID="spiffe://${TRUST_DOMAIN}/spire/agent/join_token/${join_token}"
+}
+
+# Pin the local agent so ensure-validation-workload-entry.sh never has to guess which of
+# several attested agents belongs to this VM.
+record_authority_agent_node_id() {
+    if [[ -z "${AUTHORITY_AGENT_NODE_ID:-}" ]]; then
+        return 0
+    fi
+
+    install -d -o root -g root -m 0755 "$(dirname "${AUTHORITY_AGENT_NODE_ID_FILE}")"
+    install -o root -g root -m 0600 /dev/null "${AUTHORITY_AGENT_NODE_ID_FILE}"
+    printf '%s\n' "${AUTHORITY_AGENT_NODE_ID}" > "${AUTHORITY_AGENT_NODE_ID_FILE}"
+    log_nested "recorded authority-agent node id"
 }
 
 main() {
@@ -79,6 +98,15 @@ main() {
     log_nested "trust_domain=${TRUST_DOMAIN}"
     log_nested "trusted_root=${TRUSTED_SPIRE_SERVER}:${TRUSTED_SPIRE_PORT}"
     log_nested "authority_server_spiffe_id=${AUTHORITY_SERVER_SPIFFE_ID}"
+
+    require_var TRUSTED_ROOT_BUNDLE_FILE
+    if [[ ! -s "${TRUSTED_ROOT_BUNDLE_FILE}" ]]; then
+        echo "[nested-spire] trusted root bundle is missing: ${TRUSTED_ROOT_BUNDLE_FILE}" >&2
+        echo "[nested-spire] Export it on the Trusted Root VM with export-trusted-root-bundle.sh and" >&2
+        echo "[nested-spire] pass it to render-openstack-user-data.py --trusted-root-bundle-file." >&2
+        echo "[nested-spire] Without it the upstream agent would trust the root on first contact." >&2
+        exit 1
+    fi
 
     install_runtime_dirs
     render_all_configs
@@ -126,6 +154,24 @@ main() {
         exit 1
     }
     rm -f "${AUTHORITY_AGENT_JOIN_TOKEN_FILE}"
+    record_authority_agent_node_id
+
+    # The adapter proves the chain by fetching an SVID from the Authority Agent Workload
+    # API. Without this entry that call returns "no identity issued" and the adapter
+    # reports the authority as unusable until someone creates it by hand.
+    log_nested "ensuring validation workload entry"
+    if ! "${AUTHORITY_DIR}/firstboot/ensure-validation-workload-entry.sh" >/dev/null; then
+        echo "[nested-spire] could not create the validation workload entry." >&2
+        echo "[nested-spire] The SPIRE evidence adapter needs it to fetch an SVID from ${AUTHORITY_AGENT_SOCKET}." >&2
+        exit 1
+    fi
+
+    log_nested "starting SPIRE evidence adapter"
+    systemctl reset-failed spire-evidence-adapter.service >/dev/null 2>&1 || true
+    if ! systemctl start spire-evidence-adapter.service; then
+        service_debug spire-evidence-adapter.service
+        exit 1
+    fi
 
     touch "${COMPLETE_FILE}"
     log_nested "nested authority first boot complete"

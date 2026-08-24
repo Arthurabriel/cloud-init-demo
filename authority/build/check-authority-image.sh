@@ -31,6 +31,14 @@ log_fail() {
     printf '[authority-check] FAIL: %s\n' "$*" >&2
 }
 
+require_root_for_live_root() {
+    if [[ "${ROOT}" == "/" && "${EUID}" -ne 0 ]]; then
+        echo "[authority-check] este script precisa de root quando AUTHORITY_ROOT=/." >&2
+        echo "[authority-check] rode: sudo /opt/spire-demo/authority/build/check-authority-image.sh" >&2
+        exit 1
+    fi
+}
+
 require_file() {
     local file="$1"
     local description="$2"
@@ -86,10 +94,15 @@ check_core_files() {
     require_file "$(path_in_root /opt/spire-demo/authority/firstboot/trusted-root-firstboot.sh)" "script first boot Trusted Root"
     require_file "$(path_in_root /opt/spire-demo/authority/firstboot/nested-authority-firstboot.sh)" "script first boot Nested Authority"
     require_file "$(path_in_root /opt/spire-demo/authority/firstboot/create-upstream-agent-join-token.sh)" "script join token Upstream Agent"
+    require_file "$(path_in_root /opt/spire-demo/authority/firstboot/export-trusted-root-bundle.sh)" "script export bundle Trusted Root"
     require_file "$(path_in_root /opt/spire-demo/authority/firstboot/register-downstream-authority.sh)" "script registro downstream"
+    require_file "$(path_in_root /opt/spire-demo/authority/firstboot/resolve-upstream-agent.py)" "resolver Upstream Agent"
+    require_file "$(path_in_root /opt/spire-demo/authority/firstboot/inspect-downstream-entries.py)" "classificador entries downstream"
+    require_file "$(path_in_root /opt/spire-demo/authority/firstboot/ensure-validation-workload-entry.sh)" "script entry workload de validação"
     require_file "$(path_in_root /opt/spire-demo/authority/firstboot/check-authority-nested-state.sh)" "script readiness Nested Authority"
     require_file "$(path_in_root /opt/spire-demo/authority/firstboot/inspect-nested-authority.sh)" "script inspeção Nested Authority"
     require_file "$(path_in_root /opt/spire-demo/authority/firstboot/validate-authority-certificate-chain.sh)" "script validação cadeia X.509"
+    require_file "$(path_in_root /opt/spire-demo/authority/firstboot/wait-for-spire-socket.sh)" "helper espera socket SPIRE"
     require_file "$(path_in_root /opt/spire-demo/authority/build/render-openstack-user-data.py)" "renderizador cloud-init OpenStack"
 }
 
@@ -209,6 +222,7 @@ check_manifest() {
 }
 
 main() {
+    require_root_for_live_root
     check_core_files
     check_targets
     check_agent_state

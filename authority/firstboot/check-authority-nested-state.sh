@@ -67,6 +67,12 @@ else
     status_line "upstream authority" missing
     mark_not_ready
 fi
+if [[ -s "${TRUSTED_ROOT_BUNDLE_FILE}" ]]; then
+    status_line "pinned trusted root" "${TRUSTED_ROOT_BUNDLE_FILE}"
+else
+    status_line "pinned trusted root" missing
+    mark_not_ready
+fi
 
 section "Authority Agent"
 service_state spire-agent-authority.service
@@ -74,10 +80,13 @@ socket_state "${AUTHORITY_AGENT_SOCKET}"
 status_line server "127.0.0.1:${AUTHORITY_SPIRE_PORT}"
 
 section "Nested SPIRE"
-if /opt/spire/bin/spire-server bundle show -socketPath "${AUTHORITY_SERVER_SOCKET}" >/dev/null 2>&1; then
-    status_line "intermediate CA" available
-else
+if ! /opt/spire/bin/spire-server bundle show -socketPath "${AUTHORITY_SERVER_SOCKET}" >/dev/null 2>&1; then
     status_line "intermediate CA" unavailable
+    mark_not_ready
+elif "${AUTHORITY_DIR}/firstboot/validate-authority-certificate-chain.sh" >/dev/null 2>&1; then
+    status_line "intermediate CA" issued-by-trusted-root
+else
+    status_line "intermediate CA" not-chained-to-trusted-root
     mark_not_ready
 fi
 

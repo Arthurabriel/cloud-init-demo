@@ -44,6 +44,29 @@ def add_upstream_join_token(text: str, token: str) -> str:
     return text.replace("\nruncmd:\n", f"\n{block}runcmd:\n")
 
 
+def extract_root_bundle(path: Path) -> str:
+    text = path.read_text(encoding="utf-8")
+    if "BEGIN CERTIFICATE" not in text:
+        raise SystemExit(f"trusted root bundle has no PEM certificate: {path}")
+    return text
+
+
+def add_trusted_root_bundle(text: str, bundle: str) -> str:
+    indented = "".join(
+        f"      {line}\n" if line.strip() else "\n"
+        for line in bundle.splitlines()
+    )
+    block = (
+        "  - path: /etc/pgid-authority/trusted-root-bundle.pem\n"
+        "    owner: root:spire-agent\n"
+        "    permissions: '0644'\n"
+        "    content: |\n"
+        f"{indented}"
+        "\n"
+    )
+    return text.replace("\nruncmd:\n", f"\n{block}runcmd:\n")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Render OpenStack cloud-init user-data for PGID Nested SPIRE VMs."
@@ -57,15 +80,25 @@ def main() -> int:
         type=Path,
         help="File containing the short-lived join token generated on the Trusted Root.",
     )
+    parser.add_argument(
+        "--trusted-root-bundle-file",
+        type=Path,
+        help="File containing the Trusted Root trust bundle exported from the root VM.",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
     if args.role == "trusted-root":
-        template = AUTHORITY_DIR / "cloud-init/trusted-root-firstboot.yaml"
+        template = AUTHORITY_DIR / "cloud-init/trusted-root-firstboot.yaml.template"
     else:
-        template = AUTHORITY_DIR / "cloud-init/nested-authority-firstboot.yaml"
+        template = AUTHORITY_DIR / "cloud-init/nested-authority-firstboot.yaml.template"
         if not args.trusted_server:
             raise SystemExit("--trusted-server is required for --role authority")
+        if not args.trusted_root_bundle_file:
+            raise SystemExit(
+                "--trusted-root-bundle-file is required for --role authority. "
+                "Export it on the Trusted Root with export-trusted-root-bundle.sh."
+            )
 
     text = template.read_text(encoding="utf-8")
     text = replace_env_line(text, "TRUST_DOMAIN", args.trust_domain)
@@ -73,6 +106,10 @@ def main() -> int:
     if args.role == "authority":
         text = replace_env_line(text, "TRUSTED_SPIRE_SERVER", args.trusted_server or "")
         text = replace_env_line(text, "TRUSTED_SPIRE_PORT", args.trusted_port)
+        text = add_trusted_root_bundle(
+            text,
+            extract_root_bundle(args.trusted_root_bundle_file),
+        )
         if args.upstream_join_token_file:
             text = add_upstream_join_token(
                 text,

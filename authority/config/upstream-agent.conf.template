@@ -1,6 +1,6 @@
 agent {
     trust_domain = "@TRUST_DOMAIN@"
-    insecure_bootstrap = true
+    trust_bundle_path = "@TRUSTED_ROOT_BUNDLE_FILE@"
 
     data_dir = "@UPSTREAM_AGENT_DATA_DIR@"
     log_level = "DEBUG"

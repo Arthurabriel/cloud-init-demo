@@ -99,6 +99,14 @@ log() {
     printf '[authority-prepare] %s\n' "$*"
 }
 
+require_root_for_live_root() {
+    if [[ "${ROOT}" == "/" && "${EUID}" -ne 0 ]]; then
+        echo "[authority-prepare] este script precisa de root quando AUTHORITY_ROOT=/." >&2
+        echo "[authority-prepare] rode: sudo /opt/spire-demo/authority/build/prepare-authority-image.sh --finalize" >&2
+        exit 1
+    fi
+}
+
 remove_path() {
     local target="$1"
     if [[ -e "${target}" || -L "${target}" ]]; then
@@ -172,6 +180,7 @@ install_authority_targets() {
         "${source_dir}/authority-core.target" \
         "${source_dir}/authority-demo.target" \
         "${source_dir}/trusted-root.target" \
+        "${source_dir}/spire-evidence-adapter.service" \
         "${source_dir}/spire-server-trusted-root.service" \
         "${source_dir}/spire-agent-upstream.service" \
         "${source_dir}/spire-server-authority.service" \
@@ -198,14 +207,29 @@ install_authority_targets() {
             "${AUTHORITY_DIR}/firstboot/register-downstream-authority.sh" \
             "$(path_in_root /opt/spire-demo/authority/firstboot/register-downstream-authority.sh)"
         install_script_if_needed \
+            "${AUTHORITY_DIR}/firstboot/resolve-upstream-agent.py" \
+            "$(path_in_root /opt/spire-demo/authority/firstboot/resolve-upstream-agent.py)"
+        install_script_if_needed \
+            "${AUTHORITY_DIR}/firstboot/inspect-downstream-entries.py" \
+            "$(path_in_root /opt/spire-demo/authority/firstboot/inspect-downstream-entries.py)"
+        install_script_if_needed \
             "${AUTHORITY_DIR}/firstboot/check-authority-nested-state.sh" \
             "$(path_in_root /opt/spire-demo/authority/firstboot/check-authority-nested-state.sh)"
+        install_script_if_needed \
+            "${AUTHORITY_DIR}/firstboot/export-trusted-root-bundle.sh" \
+            "$(path_in_root /opt/spire-demo/authority/firstboot/export-trusted-root-bundle.sh)"
+        install_script_if_needed \
+            "${AUTHORITY_DIR}/firstboot/ensure-validation-workload-entry.sh" \
+            "$(path_in_root /opt/spire-demo/authority/firstboot/ensure-validation-workload-entry.sh)"
         install_script_if_needed \
             "${AUTHORITY_DIR}/firstboot/inspect-nested-authority.sh" \
             "$(path_in_root /opt/spire-demo/authority/firstboot/inspect-nested-authority.sh)"
         install_script_if_needed \
             "${AUTHORITY_DIR}/firstboot/validate-authority-certificate-chain.sh" \
             "$(path_in_root /opt/spire-demo/authority/firstboot/validate-authority-certificate-chain.sh)"
+        install_script_if_needed \
+            "${AUTHORITY_DIR}/firstboot/wait-for-spire-socket.sh" \
+            "$(path_in_root /opt/spire-demo/authority/firstboot/wait-for-spire-socket.sh)"
     fi
 
     if [[ "${ROOT}" == "/" ]] && command -v systemctl >/dev/null 2>&1; then
@@ -338,6 +362,7 @@ sanitize_spire_server_final() {
 }
 
 main() {
+    require_root_for_live_root
     log "preparando VM para snapshot da Authority Image"
     stop_services
     remove_known_containers

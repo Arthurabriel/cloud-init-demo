@@ -20,54 +20,14 @@ server() {
     /opt/spire/bin/spire-server "$@" -socketPath "${AUTHORITY_SERVER_SOCKET}"
 }
 
-authority_agent_id() {
-    server agent list -output json | python3 -c '
-import json
-import sys
-
-payload = json.load(sys.stdin)
-for agent in payload.get("agents", []):
-    agent_id = agent.get("id")
-    if isinstance(agent_id, str):
-        print(agent_id)
-        break
-    if isinstance(agent_id, dict):
-        trust_domain = agent_id.get("trust_domain")
-        path = agent_id.get("path")
-        if trust_domain and path:
-            path = path if str(path).startswith("/") else f"/{path}"
-            print(f"spiffe://{trust_domain}{path}")
-            break
-'
-}
-
-ensure_validation_entry() {
-    local parent_id="$1"
-    local exact_entry
-
-    exact_entry="$(
-        server entry show \
-            -parentID "${parent_id}" \
-            -spiffeID "${WORKLOAD_SPIFFE_ID}" \
-            -selector "${WORKLOAD_SELECTOR}" 2>/dev/null || true
-    )"
-    if grep -Fq "Entry ID" <<<"${exact_entry}"; then
-        return 0
-    fi
-
-    server entry create \
-        -parentID "${parent_id}" \
-        -spiffeID "${WORKLOAD_SPIFFE_ID}" \
-        -selector "${WORKLOAD_SELECTOR}" >/dev/null
-}
-
 fetch_validation_svid() {
-    local attempt
+    local attempt fetch_error
+    fetch_error="${TMP_DIR}/fetch-error.log"
 
     for attempt in $(seq 1 15); do
         if /opt/spire/bin/spire-agent api fetch x509 \
             -socketPath "${AUTHORITY_AGENT_SOCKET}" \
-            -write "${TMP_DIR}" >/dev/null; then
+            -write "${TMP_DIR}" >"${TMP_DIR}/fetch-output.log" 2>"${fetch_error}"; then
             return 0
         fi
         sleep 2
@@ -77,6 +37,10 @@ fetch_validation_svid() {
     echo "[authority-chain] expected SPIFFE ID: ${WORKLOAD_SPIFFE_ID}" >&2
     echo "[authority-chain] expected parent ID: ${PARENT_ID}" >&2
     echo "[authority-chain] expected selector: ${WORKLOAD_SELECTOR}" >&2
+    if [[ -s "${fetch_error}" ]]; then
+        echo "[authority-chain] last fetch error:" >&2
+        cat "${fetch_error}" >&2
+    fi
     echo "[authority-chain] exact matching entries:" >&2
     server entry show \
         -parentID "${PARENT_ID}" \
@@ -95,13 +59,16 @@ split_chain() {
 }
 
 main() {
-    PARENT_ID="$(authority_agent_id)"
+    # Shared with the first boot, which creates this entry before starting the adapter.
+    PARENT_ID="$(
+        WORKLOAD_SPIFFE_ID="${WORKLOAD_SPIFFE_ID}" \
+        WORKLOAD_SELECTOR="${WORKLOAD_SELECTOR}" \
+        "${AUTHORITY_DIR}/firstboot/ensure-validation-workload-entry.sh" | tail -n 1
+    )"
     if [[ -z "${PARENT_ID}" ]]; then
-        echo "[authority-chain] no attested authority agent found" >&2
+        echo "[authority-chain] could not resolve the authority agent parent ID" >&2
         exit 1
     fi
-
-    ensure_validation_entry "${PARENT_ID}"
 
     fetch_validation_svid
 
@@ -116,20 +83,34 @@ main() {
         exit 1
     fi
 
-    if [[ -f "${TMP_DIR}/cert-02.pem" ]]; then
-        cat "${TMP_DIR}"/cert-0[2-9].pem > "${TMP_DIR}/intermediates.pem"
-        openssl verify \
-            -CAfile "${TMP_DIR}/bundle.0.pem" \
-            -untrusted "${TMP_DIR}/intermediates.pem" \
-            "${TMP_DIR}/cert-01.pem"
-    else
-        openssl verify \
-            -CAfile "${TMP_DIR}/bundle.0.pem" \
-            "${TMP_DIR}/cert-01.pem"
+    if [[ ! -f "${TMP_DIR}/cert-02.pem" ]]; then
+        echo "[authority-chain] SVID chain has no intermediate CA." >&2
+        echo "[authority-chain] This Authority signed the workload with its own root, so it is not nested." >&2
+        echo "[authority-chain] Confirm UpstreamAuthority \"spire\" in ${AUTHORITY_SERVER_CONFIG} and the" >&2
+        echo "[authority-chain] -downstream entry for ${AUTHORITY_SERVER_SPIFFE_ID} on the Trusted Root." >&2
+        exit 1
     fi
+
+    cat "${TMP_DIR}"/cert-0[2-9].pem > "${TMP_DIR}/intermediates.pem"
+    openssl verify \
+        -CAfile "${TMP_DIR}/bundle.0.pem" \
+        -untrusted "${TMP_DIR}/intermediates.pem" \
+        "${TMP_DIR}/cert-01.pem"
+
+    if [[ ! -s "${TRUSTED_ROOT_BUNDLE_FILE}" ]]; then
+        echo "[authority-chain] pinned trusted root bundle is missing: ${TRUSTED_ROOT_BUNDLE_FILE}" >&2
+        echo "[authority-chain] Without it the chain can only be checked against the local bundle." >&2
+        exit 1
+    fi
+
+    openssl verify \
+        -CAfile "${TRUSTED_ROOT_BUNDLE_FILE}" \
+        -untrusted "${TMP_DIR}/intermediates.pem" \
+        "${TMP_DIR}/cert-01.pem"
 
     printf '[authority-chain] workload SVID: %s\n' "${WORKLOAD_SPIFFE_ID}"
     printf '[authority-chain] chain verification: OK\n'
+    printf '[authority-chain] verified against pinned trusted root: %s\n' "${TRUSTED_ROOT_BUNDLE_FILE}"
     printf '[authority-chain] certificate subjects:\n'
     for cert in "${TMP_DIR}"/cert-*.pem; do
         openssl x509 -in "${cert}" -noout -subject -issuer

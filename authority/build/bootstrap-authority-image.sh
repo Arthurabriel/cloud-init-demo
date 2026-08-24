@@ -202,8 +202,20 @@ install_systemd_units() {
         "${AUTHORITY_DIR}/firstboot/register-downstream-authority.sh" \
         /opt/spire-demo/authority/firstboot/register-downstream-authority.sh
     install_script_if_needed \
+        "${AUTHORITY_DIR}/firstboot/resolve-upstream-agent.py" \
+        /opt/spire-demo/authority/firstboot/resolve-upstream-agent.py
+    install_script_if_needed \
+        "${AUTHORITY_DIR}/firstboot/inspect-downstream-entries.py" \
+        /opt/spire-demo/authority/firstboot/inspect-downstream-entries.py
+    install_script_if_needed \
         "${AUTHORITY_DIR}/firstboot/create-upstream-agent-join-token.sh" \
         /opt/spire-demo/authority/firstboot/create-upstream-agent-join-token.sh
+    install_script_if_needed \
+        "${AUTHORITY_DIR}/firstboot/export-trusted-root-bundle.sh" \
+        /opt/spire-demo/authority/firstboot/export-trusted-root-bundle.sh
+    install_script_if_needed \
+        "${AUTHORITY_DIR}/firstboot/ensure-validation-workload-entry.sh" \
+        /opt/spire-demo/authority/firstboot/ensure-validation-workload-entry.sh
     install_script_if_needed \
         "${AUTHORITY_DIR}/firstboot/check-authority-nested-state.sh" \
         /opt/spire-demo/authority/firstboot/check-authority-nested-state.sh
@@ -213,6 +225,9 @@ install_systemd_units() {
     install_script_if_needed \
         "${AUTHORITY_DIR}/firstboot/validate-authority-certificate-chain.sh" \
         /opt/spire-demo/authority/firstboot/validate-authority-certificate-chain.sh
+    install_script_if_needed \
+        "${AUTHORITY_DIR}/firstboot/wait-for-spire-socket.sh" \
+        /opt/spire-demo/authority/firstboot/wait-for-spire-socket.sh
 
     systemctl daemon-reload
 }
@@ -250,10 +265,15 @@ validate_configs() {
     bash -n "${AUTHORITY_DIR}/firstboot/trusted-root-firstboot.sh"
     bash -n "${AUTHORITY_DIR}/firstboot/nested-authority-firstboot.sh"
     bash -n "${AUTHORITY_DIR}/firstboot/register-downstream-authority.sh"
+    python3 -m py_compile "${AUTHORITY_DIR}/firstboot/resolve-upstream-agent.py"
+    python3 -m py_compile "${AUTHORITY_DIR}/firstboot/inspect-downstream-entries.py"
     bash -n "${AUTHORITY_DIR}/firstboot/create-upstream-agent-join-token.sh"
+    bash -n "${AUTHORITY_DIR}/firstboot/export-trusted-root-bundle.sh"
+    bash -n "${AUTHORITY_DIR}/firstboot/ensure-validation-workload-entry.sh"
     bash -n "${AUTHORITY_DIR}/firstboot/check-authority-nested-state.sh"
     bash -n "${AUTHORITY_DIR}/firstboot/inspect-nested-authority.sh"
     bash -n "${AUTHORITY_DIR}/firstboot/validate-authority-certificate-chain.sh"
+    bash -n "${AUTHORITY_DIR}/firstboot/wait-for-spire-socket.sh"
 }
 
 start_core() {
