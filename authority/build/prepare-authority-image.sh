@@ -18,6 +18,17 @@ CORE_SERVICES=(
     spire-server
 )
 
+AUTHORITY_SYSTEMD_UNITS=(
+    authority-core.target
+    authority-demo.target
+    trusted-root.target
+    spire-evidence-adapter.service
+    spire-server-trusted-root.service
+    spire-agent-upstream.service
+    spire-server-authority.service
+    spire-agent-authority.service
+)
+
 SERVER_RUNTIME_FILES=(
     /var/lib/spire/server/datastore.sqlite3
     /var/lib/spire/server/datastore.sqlite3-shm
@@ -176,6 +187,10 @@ install_authority_targets() {
     fi
 
     install -d -m 0755 "${target_dir}"
+    if [[ "${ROOT}" == "/" ]] && command -v systemctl >/dev/null 2>&1; then
+        systemctl unmask "${AUTHORITY_SYSTEMD_UNITS[@]}" >/dev/null 2>&1 || true
+    fi
+
     install -m 0644 \
         "${source_dir}/authority-core.target" \
         "${source_dir}/authority-demo.target" \

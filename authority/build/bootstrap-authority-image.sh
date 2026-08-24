@@ -6,6 +6,17 @@ LOG_FILE="${AUTHORITY_BOOTSTRAP_LOG:-/var/log/pgid-authority-bootstrap.log}"
 COMPLETE_FILE="${AUTHORITY_BOOTSTRAP_COMPLETE:-/var/lib/pgid-authority/bootstrap-complete}"
 START_CORE=false
 
+AUTHORITY_SYSTEMD_UNITS=(
+    authority-core.target
+    authority-demo.target
+    trusted-root.target
+    spire-evidence-adapter.service
+    spire-server-trusted-root.service
+    spire-agent-upstream.service
+    spire-server-authority.service
+    spire-agent-authority.service
+)
+
 usage() {
     cat <<'EOF'
 Usage: bootstrap-authority-image.sh [--start-core|--no-start]
@@ -164,6 +175,10 @@ install_static_configs() {
 
 install_systemd_units() {
     log "instalando units systemd core"
+
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl unmask "${AUTHORITY_SYSTEMD_UNITS[@]}" >/dev/null 2>&1 || true
+    fi
 
     install_unit "${AUTHORITY_DIR}/systemd/spire-server.service" \
         /etc/systemd/system/spire-server.service

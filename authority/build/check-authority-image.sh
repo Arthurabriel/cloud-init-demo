@@ -7,6 +7,19 @@ AUTHORITY_DIR="${AUTHORITY_DIR:-/opt/spire-demo/authority}"
 FAILURES=0
 WARNINGS=0
 
+CRITICAL_SYSTEMD_UNITS=(
+    spire-server.service
+    spire-agent.service
+    authority-core.target
+    authority-demo.target
+    trusted-root.target
+    spire-evidence-adapter.service
+    spire-server-trusted-root.service
+    spire-agent-upstream.service
+    spire-server-authority.service
+    spire-agent-authority.service
+)
+
 path_in_root() {
     local relative_path="$1"
     relative_path="${relative_path#/}"
@@ -49,6 +62,53 @@ require_file() {
     fi
 }
 
+require_not_masked_path() {
+    local file="$1"
+    local description="$2"
+    local resolved
+
+    if [[ ! -e "${file}" && ! -L "${file}" ]]; then
+        return 0
+    fi
+
+    if [[ -L "${file}" ]]; then
+        resolved="$(readlink -f "${file}" 2>/dev/null || true)"
+        if [[ "${resolved}" == "/dev/null" ]]; then
+            log_fail "${description} está mascarada: ${file} -> /dev/null"
+            return 0
+        fi
+    fi
+
+    log_ok "${description} não está mascarada por symlink"
+}
+
+require_systemd_unit() {
+    local unit="$1"
+    local description="$2"
+    local file
+
+    file="$(path_in_root "/etc/systemd/system/${unit}")"
+    require_file "${file}" "${description}"
+    require_not_masked_path "${file}" "${description}"
+}
+
+check_live_systemd_masks() {
+    local unit state
+
+    if [[ "${ROOT}" != "/" ]] || ! command -v systemctl >/dev/null 2>&1; then
+        return 0
+    fi
+
+    for unit in "${CRITICAL_SYSTEMD_UNITS[@]}"; do
+        state="$(systemctl is-enabled "${unit}" 2>/dev/null || true)"
+        if [[ "${state}" == "masked" ]]; then
+            log_fail "unit systemd mascarada: ${unit}"
+        else
+            log_ok "unit systemd não mascarada: ${unit}"
+        fi
+    done
+}
+
 require_absent() {
     local file="$1"
     local description="$2"
@@ -83,13 +143,13 @@ check_core_files() {
     require_file "$(path_in_root /opt/spire-demo/authority/config/upstream-agent.conf.template)" "template Upstream Agent"
     require_file "$(path_in_root /opt/spire-demo/authority/config/authority-server.conf.template)" "template Authority Server"
     require_file "$(path_in_root /opt/spire-demo/authority/config/authority-agent.conf.template)" "template Authority Agent"
-    require_file "$(path_in_root /etc/systemd/system/spire-server.service)" "unit spire-server"
-    require_file "$(path_in_root /etc/systemd/system/spire-agent.service)" "unit spire-agent"
-    require_file "$(path_in_root /etc/systemd/system/spire-server-trusted-root.service)" "unit Trusted Root Server"
-    require_file "$(path_in_root /etc/systemd/system/spire-agent-upstream.service)" "unit Upstream Agent"
-    require_file "$(path_in_root /etc/systemd/system/spire-server-authority.service)" "unit Authority Server"
-    require_file "$(path_in_root /etc/systemd/system/spire-agent-authority.service)" "unit Authority Agent"
-    require_file "$(path_in_root /etc/systemd/system/spire-evidence-adapter.service)" "unit Evidence Service"
+    require_systemd_unit spire-server.service "unit spire-server"
+    require_systemd_unit spire-agent.service "unit spire-agent"
+    require_systemd_unit spire-server-trusted-root.service "unit Trusted Root Server"
+    require_systemd_unit spire-agent-upstream.service "unit Upstream Agent"
+    require_systemd_unit spire-server-authority.service "unit Authority Server"
+    require_systemd_unit spire-agent-authority.service "unit Authority Agent"
+    require_systemd_unit spire-evidence-adapter.service "unit Evidence Service"
     require_file "$(path_in_root /opt/spire-demo/authority/firstboot/authority-firstboot.sh)" "script first boot linear da Authority"
     require_file "$(path_in_root /opt/spire-demo/authority/firstboot/trusted-root-firstboot.sh)" "script first boot Trusted Root"
     require_file "$(path_in_root /opt/spire-demo/authority/firstboot/nested-authority-firstboot.sh)" "script first boot Nested Authority"
@@ -109,16 +169,19 @@ check_core_files() {
 check_targets() {
     if [[ -f "$(path_in_root /etc/systemd/system/authority-core.target)" ]]; then
         log_ok "authority-core.target instalado"
+        require_not_masked_path "$(path_in_root /etc/systemd/system/authority-core.target)" "authority-core.target"
     else
         log_warn "authority-core.target ainda não instalado; rode prepare-authority-image.sh"
     fi
     if [[ -f "$(path_in_root /etc/systemd/system/authority-demo.target)" ]]; then
         log_ok "authority-demo.target instalado"
+        require_not_masked_path "$(path_in_root /etc/systemd/system/authority-demo.target)" "authority-demo.target"
     else
         log_warn "authority-demo.target ainda não instalado; rode prepare-authority-image.sh"
     fi
     if [[ -f "$(path_in_root /etc/systemd/system/trusted-root.target)" ]]; then
         log_ok "trusted-root.target instalado"
+        require_not_masked_path "$(path_in_root /etc/systemd/system/trusted-root.target)" "trusted-root.target"
     else
         log_warn "trusted-root.target ainda não instalado; rode prepare-authority-image.sh"
     fi
@@ -231,6 +294,7 @@ main() {
     check_cloud_init_state
     check_known_secrets
     check_manifest
+    check_live_systemd_masks
 
     if [[ "${FAILURES}" -gt 0 ]]; then
         printf '[authority-check] resultado: %d falha(s), %d aviso(s)\n' "${FAILURES}" "${WARNINGS}" >&2
