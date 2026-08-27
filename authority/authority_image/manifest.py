@@ -90,6 +90,7 @@ def build_manifest(
     evidence_image = runtime.get("SPIRE_EVIDENCE_ADAPTER_IMAGE")
     chat_image = runtime.get("SPIRE_CHAT_AGENT_IMAGE")
     kv_image = runtime.get("KEY_STORE_IMAGE_REF") or runtime.get("KEY_STORE_IMAGE")
+    a2a_image = runtime.get("A2A_WORKERS_IMAGE")
 
     return {
         "schema_version": authority.get("AUTHORITY_SCHEMA_VERSION", "1.0"),
@@ -133,6 +134,14 @@ def build_manifest(
             or (repository_dir / "systemd/kv-store.service").exists(),
             "demo_chat_agent": (root / "etc/systemd/system/spire-chat-agent.service").exists()
             or (repository_dir / "systemd/spire-chat-agent.service").exists(),
+            "a2a_worker_autogen": (
+                root / "etc/systemd/system/a2a-worker-autogen.service"
+            ).exists()
+            or (repository_dir / "systemd/a2a-worker-autogen.service").exists(),
+            "a2a_worker_crewai": (
+                root / "etc/systemd/system/a2a-worker-crewai.service"
+            ).exists()
+            or (repository_dir / "systemd/a2a-worker-crewai.service").exists(),
         },
         "containers": {
             "evidence_service": {
@@ -146,6 +155,11 @@ def build_manifest(
             "demo_chat_agent": {
                 "image": chat_image,
                 "digest": _docker_repo_digest(chat_image),
+            },
+            "a2a_workers": {
+                "image": a2a_image,
+                "digest": _docker_repo_digest(a2a_image),
+                "config_digest": runtime.get("A2A_WORKERS_IMAGE_CONFIG_DIGEST") or None,
             },
         },
         "build": {

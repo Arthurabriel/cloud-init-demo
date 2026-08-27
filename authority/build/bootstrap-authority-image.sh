@@ -15,6 +15,8 @@ AUTHORITY_SYSTEMD_UNITS=(
     spire-agent-upstream.service
     spire-server-authority.service
     spire-agent-authority.service
+    a2a-worker-autogen.service
+    a2a-worker-crewai.service
 )
 
 usage() {
@@ -194,6 +196,10 @@ install_systemd_units() {
         /etc/systemd/system/spire-server-authority.service
     install_unit "${AUTHORITY_DIR}/systemd/spire-agent-authority.service" \
         /etc/systemd/system/spire-agent-authority.service
+    install_unit "${AUTHORITY_DIR}/systemd/a2a-worker-autogen.service" \
+        /etc/systemd/system/a2a-worker-autogen.service
+    install_unit "${AUTHORITY_DIR}/systemd/a2a-worker-crewai.service" \
+        /etc/systemd/system/a2a-worker-crewai.service
 
     install_unit "${AUTHORITY_DIR}/systemd/authority-core.target" \
         /etc/systemd/system/authority-core.target
@@ -201,6 +207,9 @@ install_systemd_units() {
         /etc/systemd/system/authority-demo.target
     install_unit "${AUTHORITY_DIR}/systemd/trusted-root.target" \
         /etc/systemd/system/trusted-root.target
+    install_script_if_needed \
+        "${AUTHORITY_DIR}/firstboot/ensure-a2a-worker-entries.sh" \
+        /opt/spire-demo/authority/firstboot/ensure-a2a-worker-entries.sh
     install_script_if_needed \
         "${AUTHORITY_DIR}/firstboot/authority-firstboot.sh" \
         /opt/spire-demo/authority/firstboot/authority-firstboot.sh
@@ -231,6 +240,9 @@ install_systemd_units() {
     install_script_if_needed \
         "${AUTHORITY_DIR}/firstboot/ensure-validation-workload-entry.sh" \
         /opt/spire-demo/authority/firstboot/ensure-validation-workload-entry.sh
+    install_script_if_needed \
+        "${AUTHORITY_DIR}/firstboot/ensure-root-validator-entry.sh" \
+        /opt/spire-demo/authority/firstboot/ensure-root-validator-entry.sh
     install_script_if_needed \
         "${AUTHORITY_DIR}/firstboot/check-authority-nested-state.sh" \
         /opt/spire-demo/authority/firstboot/check-authority-nested-state.sh
@@ -267,9 +279,13 @@ install_evidence_service_image() {
     source "${runtime_env}"
 
     : "${SPIRE_EVIDENCE_ADAPTER_IMAGE:?SPIRE_EVIDENCE_ADAPTER_IMAGE não definido}"
+    : "${A2A_WORKERS_IMAGE:?A2A_WORKERS_IMAGE não definido}"
 
     log "baixando imagem core do Evidence Service: ${SPIRE_EVIDENCE_ADAPTER_IMAGE}"
     docker pull "${SPIRE_EVIDENCE_ADAPTER_IMAGE}"
+
+    log "baixando imagem dos agentes A2A: ${A2A_WORKERS_IMAGE}"
+    docker pull "${A2A_WORKERS_IMAGE}"
 }
 
 validate_configs() {
@@ -285,6 +301,7 @@ validate_configs() {
     bash -n "${AUTHORITY_DIR}/firstboot/create-upstream-agent-join-token.sh"
     bash -n "${AUTHORITY_DIR}/firstboot/export-trusted-root-bundle.sh"
     bash -n "${AUTHORITY_DIR}/firstboot/ensure-validation-workload-entry.sh"
+    bash -n "${AUTHORITY_DIR}/firstboot/ensure-root-validator-entry.sh"
     bash -n "${AUTHORITY_DIR}/firstboot/check-authority-nested-state.sh"
     bash -n "${AUTHORITY_DIR}/firstboot/inspect-nested-authority.sh"
     bash -n "${AUTHORITY_DIR}/firstboot/validate-authority-certificate-chain.sh"

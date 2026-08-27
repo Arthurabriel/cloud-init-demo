@@ -1,19 +1,22 @@
 [Unit]
 Description=SPIRE Evidence Adapter for Nested Authority
 ConditionPathExists=/etc/pgid-authority/trusted-root-bundle.pem
-After=docker.service spire-server-authority.service spire-agent-authority.service
+After=docker.service spire-agent-upstream.service spire-server-authority.service spire-agent-authority.service
 Requires=docker.service spire-server-authority.service
-Wants=spire-agent-authority.service
+Wants=spire-agent-authority.service spire-agent-upstream.service
 
 [Service]
 Type=simple
 EnvironmentFile=/opt/spire-demo/authority/config/runtime.env
 EnvironmentFile=-/etc/pgid-authority/nested.env
+ExecStartPre=/usr/local/sbin/wait-for-spire-socket authority-server-api /run/spire/authority-server/private/api.sock 60 2
+ExecStartPre=/usr/local/sbin/wait-for-spire-socket authority-agent-workload-api /run/spire/authority-agent/public/api.sock 60 2
+ExecStartPre=/usr/local/sbin/wait-for-spire-socket upstream-agent-workload-api /run/spire/upstream-agent/public/api.sock 60 2
 ExecStartPre=-/usr/bin/docker rm -f ${SPIRE_EVIDENCE_ADAPTER_CONTAINER_NAME}
 ExecStart=/usr/bin/docker run \
     --name ${SPIRE_EVIDENCE_ADAPTER_CONTAINER_NAME} \
     --network host \
-    --env MCP_SERVER_HOST=127.0.0.1 \
+    --env MCP_SERVER_HOST=0.0.0.0 \
     --env MCP_SERVER_PORT=8000 \
     --env MCP_SERVER_TRANSPORT=streamable-http \
     --env SPIRE_SERVER_BINARY=${SPIRE_SERVER_BINARY} \
@@ -21,16 +24,19 @@ ExecStart=/usr/bin/docker run \
     --env OPENSSL_BINARY=openssl \
     --env SPIRE_SERVER_SOCKET=/run/spire/authority-server/private/api.sock \
     --env SPIRE_AGENT_SOCKET=/run/spire/authority-agent/public/api.sock \
+    --env SPIRE_UPSTREAM_AGENT_SOCKET=/run/spire/upstream-agent/public/api.sock \
     --env SPIRE_SERVER_CONFIG_FILE=/etc/spire/authority-server/server.conf \
     --env SPIRE_AGENT_CONFIG_FILE=/etc/spire/authority-agent/agent.conf \
     --env SPIRE_EXPECTED_TRUST_DOMAIN=${TRUST_DOMAIN} \
     --env AUTHORITY_SERVER_SPIFFE_ID=spiffe://${TRUST_DOMAIN}/authority/server \
+    --env ROOT_VALIDATOR_SPIFFE_ID=spiffe://${TRUST_DOMAIN}/authority/root-attested-validator \
     --env TRUSTED_ROOT_BUNDLE_FILE=/etc/pgid-authority/trusted-root-bundle.pem \
     --env SPIRE_COMMAND_TIMEOUT_SECONDS=5 \
     --env ADAPTER_LOG_LEVEL=INFO \
     --env ADAPTER_SCHEMA_VERSION=1.0 \
     --volume /run/spire/authority-server/private:/run/spire/authority-server/private \
     --volume /run/spire/authority-agent/public:/run/spire/authority-agent/public \
+    --volume /run/spire/upstream-agent/public:/run/spire/upstream-agent/public \
     --volume /etc/spire:/etc/spire:ro \
     --volume /etc/pgid-authority/trusted-root-bundle.pem:/etc/pgid-authority/trusted-root-bundle.pem:ro \
     ${SPIRE_EVIDENCE_ADAPTER_IMAGE}

@@ -1,0 +1,39 @@
+[Unit]
+Description=A2A worker agent (CrewAI) attested by the nested Authority
+After=docker.service spire-agent-authority.service
+Requires=docker.service
+Wants=spire-agent-authority.service
+
+[Service]
+Type=simple
+EnvironmentFile=/opt/spire-demo/authority/config/runtime.env
+EnvironmentFile=-/etc/pgid-authority/nested.env
+EnvironmentFile=-/etc/pgid-authority/a2a.env
+ExecStartPre=/usr/local/sbin/wait-for-spire-socket authority-agent-workload-api /run/spire/authority-agent/public/api.sock 60 2
+ExecStartPre=-/usr/bin/docker rm -f ${A2A_WORKER_CREWAI_CONTAINER_NAME}
+# --user gives the uid the entry selects on, plus the spire-agent gid so the container can
+# reach the 0750 Workload API socket without loosening the agent's umask, which also
+# governs the KeyManager data dir.
+ExecStart=/usr/bin/docker run \
+    --name ${A2A_WORKER_CREWAI_CONTAINER_NAME} \
+    --label ${A2A_WORKLOAD_LABEL_KEY}=${A2A_WORKER_CREWAI_LABEL_VALUE} \
+    --network host \
+    --user ${A2A_WORKER_CREWAI_UID}:${A2A_SPIRE_AGENT_GID} \
+    --env A2A_PUBLIC_URL=http://${A2A_PUBLIC_HOST}:${A2A_WORKER_CREWAI_PORT} \
+    --env A2A_SPIFFE_AUDIENCE=${A2A_SPIFFE_AUDIENCE} \
+    --env SPIRE_AGENT_SOCKET=/run/spire/authority-agent/public/api.sock \
+    --env SPIRE_AGENT_BINARY=/opt/spire/bin/spire-agent \
+    --env GOOGLE_API_KEY=${GOOGLE_API_KEY} \
+    --env GEMINI_API_KEY=${GEMINI_API_KEY} \
+    --env HOME=/tmp \
+    --env XDG_DATA_HOME=/tmp/.local/share \
+    --env XDG_CACHE_HOME=/tmp/.cache \
+    --volume /run/spire/authority-agent/public:/run/spire/authority-agent/public:ro \
+    --volume /opt/spire/bin/spire-agent:/opt/spire/bin/spire-agent:ro \
+    ${A2A_WORKERS_IMAGE} python ${A2A_WORKER_CREWAI_COMMAND}
+ExecStop=/usr/bin/docker stop ${A2A_WORKER_CREWAI_CONTAINER_NAME}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=authority-demo.target

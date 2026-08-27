@@ -9,6 +9,17 @@ from pathlib import Path
 AUTHORITY_DIR = Path(__file__).resolve().parents[1]
 
 
+def strip_template_banner(text: str) -> str:
+    """Remove repo-only template warnings from rendered cloud-init output."""
+    lines = text.splitlines(keepends=True)
+    if len(lines) > 1 and "TEMPLATE - do not attach this file" in lines[1]:
+        end = 2
+        while end < len(lines) and (lines[end].startswith("#") or not lines[end].strip()):
+            end += 1
+        return "".join([lines[0], *lines[end:]])
+    return text
+
+
 def replace_env_line(text: str, key: str, value: str) -> str:
     return re.sub(
         rf"(^      {re.escape(key)}=).*$",
@@ -85,6 +96,17 @@ def main() -> int:
         type=Path,
         help="File containing the Trusted Root trust bundle exported from the root VM.",
     )
+    parser.add_argument(
+        "--a2a-public-host",
+        help=(
+            "Address the A2A AgentCards advertise to peers. Defaults to this VM's "
+            "default-route address, resolved at first boot."
+        ),
+    )
+    parser.add_argument(
+        "--google-api-key",
+        help="Gemini API key for the A2A worker agents. Without it they answer canned demo text.",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -100,7 +122,7 @@ def main() -> int:
                 "Export it on the Trusted Root with export-trusted-root-bundle.sh."
             )
 
-    text = template.read_text(encoding="utf-8")
+    text = strip_template_banner(template.read_text(encoding="utf-8"))
     text = replace_env_line(text, "TRUST_DOMAIN", args.trust_domain)
 
     if args.role == "authority":
@@ -110,6 +132,10 @@ def main() -> int:
             text,
             extract_root_bundle(args.trusted_root_bundle_file),
         )
+        if args.a2a_public_host:
+            text = replace_env_line(text, "A2A_PUBLIC_HOST", args.a2a_public_host)
+        if args.google_api_key:
+            text = replace_env_line(text, "GOOGLE_API_KEY", args.google_api_key)
         if args.upstream_join_token_file:
             text = add_upstream_join_token(
                 text,

@@ -25,4 +25,10 @@ plugins {
     WorkloadAttestor "unix" {
         plugin_data {}
     }
+
+    WorkloadAttestor "docker" {
+        plugin_data {
+            docker_socket_path = "unix:///var/run/docker.sock"
+        }
+    }
 }

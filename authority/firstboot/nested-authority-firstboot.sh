@@ -89,6 +89,38 @@ record_authority_agent_node_id() {
     log_nested "recorded authority-agent node id"
 }
 
+write_a2a_env() {
+    local a2a_env="${A2A_ENV_FILE:-/etc/pgid-authority/a2a.env}"
+    local gid public_host
+
+    gid="$(getent group spire-agent | cut -d: -f3)"
+    if [[ -z "${gid}" ]]; then
+        echo "[nested-spire] group spire-agent not found; A2A workers could not reach the Workload API." >&2
+        return 1
+    fi
+
+    public_host="${A2A_PUBLIC_HOST:-}"
+    if [[ -z "${public_host}" ]]; then
+        public_host="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{ for (i=1; i<NF; i++) if ($i == "src") print $(i+1) }' | head -n 1)"
+        log_nested "A2A_PUBLIC_HOST not set; falling back to default-route address ${public_host:-<none>}"
+    fi
+    if [[ -z "${public_host}" ]]; then
+        echo "[nested-spire] could not determine A2A_PUBLIC_HOST. Set it in /etc/pgid-authority/nested.env." >&2
+        return 1
+    fi
+
+    install -d -o root -g root -m 0755 "$(dirname "${a2a_env}")"
+    install -o root -g root -m 0600 /dev/null "${a2a_env}"
+    {
+        printf 'A2A_SPIRE_AGENT_GID=%s\n' "${gid}"
+        printf 'A2A_PUBLIC_HOST=%s\n' "${public_host}"
+        printf 'GOOGLE_API_KEY=%s\n' "${GOOGLE_API_KEY:-}"
+        printf 'GEMINI_API_KEY=%s\n' "${GEMINI_API_KEY:-${GOOGLE_API_KEY:-}}"
+    } > "${a2a_env}"
+
+    log_nested "wrote ${a2a_env} (agent gid ${gid}, public host ${public_host})"
+}
+
 main() {
     require_var TRUST_DOMAIN
     require_var TRUSTED_SPIRE_SERVER
@@ -156,9 +188,6 @@ main() {
     rm -f "${AUTHORITY_AGENT_JOIN_TOKEN_FILE}"
     record_authority_agent_node_id
 
-    # The adapter proves the chain by fetching an SVID from the Authority Agent Workload
-    # API. Without this entry that call returns "no identity issued" and the adapter
-    # reports the authority as unusable until someone creates it by hand.
     log_nested "ensuring validation workload entry"
     if ! "${AUTHORITY_DIR}/firstboot/ensure-validation-workload-entry.sh" >/dev/null; then
         echo "[nested-spire] could not create the validation workload entry." >&2
@@ -168,10 +197,31 @@ main() {
 
     log_nested "starting SPIRE evidence adapter"
     systemctl reset-failed spire-evidence-adapter.service >/dev/null 2>&1 || true
-    if ! systemctl start spire-evidence-adapter.service; then
+    if ! systemctl restart spire-evidence-adapter.service; then
         service_debug spire-evidence-adapter.service
         exit 1
     fi
+
+    log_nested "preparing A2A worker agents"
+    if ! write_a2a_env; then
+        exit 1
+    fi
+    if ! "${AUTHORITY_DIR}/firstboot/ensure-a2a-worker-entries.sh" >/dev/null; then
+        echo "[nested-spire] could not create the A2A worker entries." >&2
+        echo "[nested-spire] Without them the workers answer the proof endpoint with 'no identity issued'." >&2
+        exit 1
+    fi
+    systemctl enable authority-demo.target >/dev/null
+
+    local unit
+    for unit in a2a-worker-autogen.service a2a-worker-crewai.service; do
+        log_nested "starting ${unit}"
+        systemctl reset-failed "${unit}" >/dev/null 2>&1 || true
+        if ! systemctl restart "${unit}"; then
+            service_debug "${unit}"
+            exit 1
+        fi
+    done
 
     touch "${COMPLETE_FILE}"
     log_nested "nested authority first boot complete"

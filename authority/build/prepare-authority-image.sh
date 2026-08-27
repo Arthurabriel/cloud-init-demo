@@ -7,6 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AUTHORITY_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 CORE_SERVICES=(
+    a2a-worker-autogen
+    a2a-worker-crewai
     spire-chat-agent
     kv-store
     spire-evidence-adapter
@@ -27,6 +29,8 @@ AUTHORITY_SYSTEMD_UNITS=(
     spire-agent-upstream.service
     spire-server-authority.service
     spire-agent-authority.service
+    a2a-worker-autogen.service
+    a2a-worker-crewai.service
 )
 
 SERVER_RUNTIME_FILES=(
@@ -168,6 +172,8 @@ remove_known_containers() {
         kv-store \
         spire-evidence-adapter \
         spire-chat-agent \
+        a2a-worker-autogen \
+        a2a-worker-crewai \
         >/dev/null 2>&1 || true
 }
 
@@ -250,6 +256,7 @@ install_authority_targets() {
     if [[ "${ROOT}" == "/" ]] && command -v systemctl >/dev/null 2>&1; then
         systemctl daemon-reload
         systemctl disable kv-store.service spire-chat-agent.service >/dev/null 2>&1 || true
+        systemctl disable a2a-worker-autogen.service a2a-worker-crewai.service >/dev/null 2>&1 || true
         systemctl enable authority-core.target >/dev/null 2>&1 || true
     fi
     log "targets authority instalados"
@@ -296,6 +303,8 @@ sanitize_demo_state() {
         chmod 0600 "${agent_env}"
         log "template sem segredo gravado: ${agent_env}"
     fi
+
+    remove_path "$(path_in_root /etc/pgid-authority/a2a.env)"
 }
 
 sanitize_os_identity() {

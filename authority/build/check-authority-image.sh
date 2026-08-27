@@ -18,6 +18,8 @@ CRITICAL_SYSTEMD_UNITS=(
     spire-agent-upstream.service
     spire-server-authority.service
     spire-agent-authority.service
+    a2a-worker-autogen.service
+    a2a-worker-crewai.service
 )
 
 path_in_root() {
@@ -159,6 +161,7 @@ check_core_files() {
     require_file "$(path_in_root /opt/spire-demo/authority/firstboot/resolve-upstream-agent.py)" "resolver Upstream Agent"
     require_file "$(path_in_root /opt/spire-demo/authority/firstboot/inspect-downstream-entries.py)" "classificador entries downstream"
     require_file "$(path_in_root /opt/spire-demo/authority/firstboot/ensure-validation-workload-entry.sh)" "script entry workload de validação"
+    require_file "$(path_in_root /opt/spire-demo/authority/firstboot/ensure-root-validator-entry.sh)" "script entry validador root-attested"
     require_file "$(path_in_root /opt/spire-demo/authority/firstboot/check-authority-nested-state.sh)" "script readiness Nested Authority"
     require_file "$(path_in_root /opt/spire-demo/authority/firstboot/inspect-nested-authority.sh)" "script inspeção Nested Authority"
     require_file "$(path_in_root /opt/spire-demo/authority/firstboot/validate-authority-certificate-chain.sh)" "script validação cadeia X.509"
@@ -248,12 +251,19 @@ check_cloud_init_state() {
 }
 
 check_known_secrets() {
-    local agent_env
+    local agent_env a2a_env
     agent_env="$(path_in_root /etc/spire-demo/agent.env)"
     if [[ -f "${agent_env}" ]] && grep -Eq '^GEMINI_API_KEY=.+$' "${agent_env}"; then
         log_fail "GEMINI_API_KEY preenchida em ${agent_env}"
     else
         log_ok "sem GEMINI_API_KEY preenchida"
+    fi
+
+    a2a_env="$(path_in_root /etc/pgid-authority/a2a.env)"
+    if [[ -e "${a2a_env}" ]]; then
+        log_fail "${a2a_env} presente na imagem; deveria ser recriado no first boot"
+    else
+        log_ok "sem a2a.env residual"
     fi
 
     if grep -R -n -E 'admin_pass|random_seed|BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|Token:' \
