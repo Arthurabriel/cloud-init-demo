@@ -2,7 +2,6 @@
 set -euo pipefail
 
 AUTHORITY_DIR="${AUTHORITY_DIR:-/opt/spire-demo/authority}"
-# shellcheck source=authority/firstboot/nested-common.sh
 source "${AUTHORITY_DIR}/firstboot/nested-common.sh"
 
 load_nested_env
@@ -69,15 +68,9 @@ write_authority_agent_join_token_if_needed() {
     install -o spire-agent -g spire-agent -m 0600 /dev/null "${AUTHORITY_AGENT_JOIN_TOKEN_FILE}"
     printf '%s\n' "${join_token}" > "${AUTHORITY_AGENT_JOIN_TOKEN_FILE}"
 
-    # Remember which node ID this token will produce. Recorded only once the agent is
-    # healthy (see record_authority_agent_node_id), so the value on disk is a spent,
-    # single-use token embedded in an agent ID that already appears in agent list, entries
-    # and logs -- not a live credential.
     AUTHORITY_AGENT_NODE_ID="spiffe://${TRUST_DOMAIN}/spire/agent/join_token/${join_token}"
 }
 
-# Pin the local agent so ensure-validation-workload-entry.sh never has to guess which of
-# several attested agents belongs to this VM.
 record_authority_agent_node_id() {
     if [[ -z "${AUTHORITY_AGENT_NODE_ID:-}" ]]; then
         return 0
